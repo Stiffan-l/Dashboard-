@@ -100,7 +100,7 @@ class AIProvider:
 # 4. REGISTRATIE & ACCOUNT INLOGSYSTEEM
 # ==================================================
 def toon_auth_scherm():
-    st.title("🌐 GLOBAL TRADING INTELLIGENCE")2
+    st.title("🌐 GLOBAL TRADING INTELLIGENCE")
     st.caption("V1 Professional Paper Trading & AI Market Intelligence Platform")
     
     tab1, tab2 = st.tabs(["🔐 Inloggen", "📝 Registreren"])
@@ -178,9 +178,9 @@ user_data = st.session_state.gebruikers_db[st.session_state.actieve_user]
 lang = user_data['profile']['lang']
 t = VERTALINGEN[lang]
 
-# Top Navigatiebalk van het Platform
+# Top Navigatiebalk van het Platform (Aangepast met het vereiste getal 2!)
 st.title(f"🌐 {t['title']} — v1.0 Pro")
-col_header1, col_header2 = st.columns()
+col_header1, col_header2 = st.columns(2)
 with col_header1:
     st.caption(f"{t['subtitle']}  |  Sessie: {st.session_state.actieve_user}  |  Systeem Tijd: {datetime.now().strftime('%H:%M:%S')}")
 with col_header2:
@@ -215,6 +215,3 @@ if market_data.empty:
     st.stop()
 
 huidige_prijs = market_data['Close'].iloc[-1]
-open_prijs = market_data['Open'].iloc[0]
-procent_verschil = ((huidige_prijs - open_prijs) / open_prijs) * 100
-
