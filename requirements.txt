@@ -2,7 +2,3 @@ streamlit
 yfinance
 pandas
 numpy
-streamlit
-yfinance
-pandas
-numpy
