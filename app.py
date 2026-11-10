@@ -4,2788 +4,942 @@ import pandas as pd
 import numpy as np
 import sqlite3
 import hashlib
+import hmac
 import secrets
-import json
 import math
-from datetime import datetime
+import json
+import os
+import time
+from datetime import datetime, timedelta, timezone
 
 # ==================================================
-# 1. PAGINA-INSTELLINGEN
+# 1. CONFIGURATIE
 # ==================================================
 
 st.set_page_config(
     page_title="Global Trading Intelligence",
     page_icon="📈",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
+
+APP_NAME = "GLOBAL TRADING INTELLIGENCE"
+ADMIN_EMAIL = "veenstajann@gmail.com"
+DB_PATH = "trading_platform.db"
+PBKDF2_ITERATIONS = 260_000
+SCAN_MAX_AGE_MINUTES = 15
+NEWS_MAX_AGE_MINUTES = 5
+DEFAULT_STARTING_BALANCE = 10_000.0
 
 st.markdown(
     """
     <style>
-    .stApp {
-        background-color: #0B0F19;
-        color: #F3F4F6;
-    }
-
-    [data-testid="stSidebar"] {
-        background-color: #111827;
-    }
-
+    .stApp { background: #0b0f19; color: #f3f4f6; }
+    [data-testid="stSidebar"] { background: #111827; }
     [data-testid="stMetric"] {
-        background-color: #111827;
-        border: 1px solid #273244;
-        border-radius: 12px;
-        padding: 16px;
+        background: linear-gradient(145deg,#111827,#172033);
+        border: 1px solid #273449; border-radius: 14px; padding: 14px;
     }
-
-    .signal-card {
-        background-color: #111827;
-        border: 1px solid #273244;
-        border-radius: 12px;
-        padding: 18px;
-        margin-bottom: 12px;
-    }
-
-    .bullish {
-        border-left: 5px solid #22C55E;
-    }
-
-    .bearish {
-        border-left: 5px solid #EF4444;
-    }
-
-    .neutral {
-        border-left: 5px solid #F59E0B;
-    }
-
-    .disclaimer {
-        background-color: #111827;
-        border: 1px solid #374151;
-        border-radius: 10px;
-        padding: 14px;
-        color: #D1D5DB;
-    }
+    .gti-card { background:#111827; border:1px solid #273449; border-radius:14px; padding:16px; margin:8px 0; }
+    .gti-buy { border-left:5px solid #22c55e; }
+    .gti-watch { border-left:5px solid #f59e0b; }
+    .gti-sell { border-left:5px solid #ef4444; }
+    .gti-info { border-left:5px solid #3b82f6; }
+    .small-muted { color:#9ca3af; font-size:.86rem; }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
+)
+
+DISCLAIMER = (
+    "De scanner rangschikt uitsluitend mogelijke paper-tradingopstellingen. "
+    "Een hoge score is geen garantie op koerswinst. Dit platform is uitsluitend "
+    "bedoeld voor educatie, historische marktanalyse en paper trading."
 )
 
 # ==================================================
-# 2. DATABASE
+# 2. MARKTUNIVERSUM, CIRCA 200 ASSETS
 # ==================================================
 
-DATABASE_FILE = "trading_platform.db"
+MARKET_UNIVERSE = {
+    "Nederland": ["ASML.AS","SHELL.AS","INGA.AS","ADYEN.AS","PHIA.AS","HEIA.AS","UNA.AS","WKL.AS","KPN.AS","NN.AS","AGN.AS","ASM.AS","BESI.AS","AKZA.AS","RAND.AS","DSFIR.AS","IMCD.AS","MT.AS","PRX.AS","LIGHT.AS"],
+    "US Mega Cap": ["AAPL","MSFT","NVDA","AMZN","GOOGL","META","TSLA","BRK-B","AVGO","LLY","JPM","V","MA","WMT","XOM","COST","ORCL","NFLX","HD","PG"],
+    "US Technology": ["AMD","INTC","QCOM","MU","ARM","SMCI","PLTR","CRM","ADBE","NOW","SNOW","PANW","CRWD","NET","DDOG","SHOP","UBER","ABNB","PYPL","SQ"],
+    "US Industrial": ["CAT","DE","GE","HON","BA","LMT","RTX","NOC","UPS","FDX","UNP","CSX","WM","ETN","EMR"],
+    "US Financial": ["BAC","WFC","GS","MS","C","BLK","SCHW","AXP","COF","SPGI","ICE","CME","BK","PNC","USB"],
+    "US Healthcare": ["JNJ","UNH","MRK","ABBV","PFE","TMO","ABT","DHR","BMY","AMGN","GILD","VRTX","REGN","ISRG","MDT"],
+    "US Consumer": ["KO","PEP","MCD","SBUX","NKE","DIS","LOW","TGT","CVS","PM","MO","MDLZ","CL","EL","LULU"],
+    "Europe": ["SAP.DE","SIE.DE","ALV.DE","BAS.DE","BMW.DE","MBG.DE","VOW3.DE","DTE.DE","DBK.DE","RWE.DE","AIR.PA","MC.PA","OR.PA","SAN.PA","BNP.PA","SU.PA","TTE.PA","ADS.DE","NESN.SW","NOVN.SW","ROG.SW","UBSG.SW","AZN.L","HSBA.L","BP.L","SHEL.L","ULVR.L","GSK.L","RIO.L","BARC.L"],
+    "Asia": ["7203.T","6758.T","9984.T","8306.T","6861.T","6501.T","7201.T","7267.T","9432.T","8035.T","005930.KS","000660.KS","035420.KS","035720.KS","TSM","BABA","JD","PDD","BIDU","NIO"],
+    "Crypto": ["BTC-USD","ETH-USD","SOL-USD","XRP-USD","ADA-USD","DOGE-USD","BNB-USD","AVAX-USD","LINK-USD","DOT-USD","LTC-USD","BCH-USD","ATOM-USD","UNI-USD","AAVE-USD","NEAR-USD","ETC-USD","XLM-USD","FIL-USD","APT-USD"],
+    "Forex": ["EURUSD=X","GBPUSD=X","USDJPY=X","EURGBP=X","AUDUSD=X","USDCAD=X","USDCHF=X","NZDUSD=X","EURJPY=X","GBPJPY=X"],
+    "Indices": ["^AEX","^GSPC","^IXIC","^DJI","^RUT","^VIX","^GDAXI","^FTSE","^FCHI","^N225","^HSI","000001.SS"],
+    "Commodities": ["GC=F","SI=F","CL=F","BZ=F","NG=F","HG=F","PL=F","PA=F","ZC=F","ZW=F"],
+    "ETF": ["SPY","QQQ","DIA","IWM","VTI","VOO","XLK","XLF","XLE","XLV","ARKK","SMH","SOXX","GLD","SLV","TLT","HYG","EEM","VEA","VNQ"],
+}
+
+TICKER_CATEGORY = {}
+for category, symbols in MARKET_UNIVERSE.items():
+    for symbol in symbols:
+        symbol = str(symbol).strip().upper()
+        if symbol:
+            TICKER_CATEGORY.setdefault(symbol, category)
+ALL_TICKERS = list(TICKER_CATEGORY.keys())
+
+# ==================================================
+# 3. DATABASE EN MIGRATIES
+# ==================================================
+
+def db():
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
 
 
-def get_connection():
-    connection = sqlite3.connect(
-        DATABASE_FILE,
-        check_same_thread=False
-    )
-    connection.row_factory = sqlite3.Row
-    return connection
+def table_columns(conn, table):
+    return {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+
+
+def add_column_if_missing(conn, table, column, definition):
+    if column not in table_columns(conn, table):
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def init_database():
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    cursor.execute(
+    conn = db()
+    conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             first_name TEXT NOT NULL,
-            last_name TEXT,
+            last_name TEXT DEFAULT '',
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             password_salt TEXT NOT NULL,
-            country TEXT,
-            experience TEXT,
-            trading_style TEXT,
+            role TEXT NOT NULL DEFAULT 'USER',
+            active INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,
             last_login TEXT
-        )
-        """
-    )
-
-    cursor.execute(
-        """
+        );
         CREATE TABLE IF NOT EXISTS paper_accounts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
-            account_name TEXT NOT NULL,
+            name TEXT NOT NULL DEFAULT 'Hoofdaccount',
             initial_balance REAL NOT NULL,
             cash_balance REAL NOT NULL,
-            realized_pnl REAL DEFAULT 0,
-            risk_percentage REAL DEFAULT 1,
+            realized_pnl REAL NOT NULL DEFAULT 0,
+            risk_pct REAL NOT NULL DEFAULT 1,
+            max_allocation_pct REAL NOT NULL DEFAULT 20,
+            max_positions INTEGER NOT NULL DEFAULT 5,
+            active INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,
-            active INTEGER DEFAULT 1,
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )
-        """
-    )
-
-    cursor.execute(
-        """
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
         CREATE TABLE IF NOT EXISTS positions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             account_id INTEGER NOT NULL,
             ticker TEXT NOT NULL,
-            direction TEXT NOT NULL,
             quantity REAL NOT NULL,
             entry_price REAL NOT NULL,
             stop_loss REAL,
             take_profit REAL,
             strategy TEXT,
+            original_score REAL,
+            original_signal TEXT,
             opened_at TEXT NOT NULL,
-            status TEXT DEFAULT 'OPEN',
-            FOREIGN KEY (user_id) REFERENCES users (id),
-            FOREIGN KEY (account_id) REFERENCES paper_accounts (id)
-        )
-        """
-    )
-
-    cursor.execute(
-        """
+            last_reviewed TEXT,
+            status TEXT NOT NULL DEFAULT 'OPEN',
+            FOREIGN KEY(user_id) REFERENCES users(id),
+            FOREIGN KEY(account_id) REFERENCES paper_accounts(id)
+        );
         CREATE TABLE IF NOT EXISTS trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             account_id INTEGER NOT NULL,
             ticker TEXT NOT NULL,
-            direction TEXT NOT NULL,
             quantity REAL NOT NULL,
             entry_price REAL NOT NULL,
             exit_price REAL NOT NULL,
-            stop_loss REAL,
-            take_profit REAL,
             pnl REAL NOT NULL,
-            pnl_percentage REAL NOT NULL,
+            pnl_pct REAL NOT NULL,
             strategy TEXT,
             close_reason TEXT,
             opened_at TEXT,
             closed_at TEXT NOT NULL,
-            notes TEXT,
-            FOREIGN KEY (user_id) REFERENCES users (id),
-            FOREIGN KEY (account_id) REFERENCES paper_accounts (id)
-        )
-        """
-    )
-
-    cursor.execute(
-        """
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
         CREATE TABLE IF NOT EXISTS watchlists (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             ticker TEXT NOT NULL,
-            added_at TEXT NOT NULL,
-            UNIQUE(user_id, ticker),
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )
-        """
-    )
-
-    cursor.execute(
-        """
+            created_at TEXT NOT NULL,
+            UNIQUE(user_id,ticker)
+        );
         CREATE TABLE IF NOT EXISTS journal (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             trade_id INTEGER,
             ticker TEXT,
-            reason_entry TEXT,
+            entry_reason TEXT,
             followed_plan TEXT,
             went_well TEXT,
             went_wrong TEXT,
             lesson TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )
-        """
-    )
-
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS analysis_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            ticker TEXT NOT NULL,
-            score REAL,
-            signal TEXT,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS scanner_results (
+            ticker TEXT PRIMARY KEY,
+            category TEXT,
             price REAL,
-            summary TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )
-        """
-    )
-
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+            daily_change REAL,
+            weekly_change REAL,
+            monthly_change REAL,
+            ema9 REAL,
+            ema21 REAL,
+            sma50 REAL,
+            sma200 REAL,
+            rsi REAL,
+            macd REAL,
+            macd_signal REAL,
+            volume_ratio REAL,
+            atr REAL,
+            volatility REAL,
+            technical_score REAL,
+            news_score REAL,
+            total_score REAL,
+            signal TEXT,
+            confidence REAL,
+            entry_zone REAL,
+            stop_loss REAL,
+            target_1 REAL,
+            target_2 REAL,
+            risk_reward REAL,
+            data_quality REAL,
+            last_update TEXT,
+            scan_error TEXT,
+            active INTEGER NOT NULL DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS signal_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            ticker TEXT NOT NULL,
+            signal TEXT,
+            technical_score REAL,
+            news_score REAL,
+            total_score REAL,
+            price REAL,
+            entry_zone REAL,
+            stop_loss REAL,
+            target_1 REAL,
+            target_2 REAL,
+            risk_reward REAL,
+            confidence REAL,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS admin_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_user_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            details TEXT,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS notifications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
-            account_value REAL NOT NULL,
-            cash_balance REAL NOT NULL,
-            invested_value REAL NOT NULL,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )
+            kind TEXT,
+            message TEXT,
+            is_read INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id INTEGER PRIMARY KEY,
+            risk_pct REAL NOT NULL DEFAULT 1,
+            max_allocation_pct REAL NOT NULL DEFAULT 20,
+            max_positions INTEGER NOT NULL DEFAULT 5,
+            min_rr REAL NOT NULL DEFAULT 1.8
+        );
         """
     )
-
-    connection.commit()
-    connection.close()
+    add_column_if_missing(conn, "users", "role", "TEXT NOT NULL DEFAULT 'USER'")
+    add_column_if_missing(conn, "users", "active", "INTEGER NOT NULL DEFAULT 1")
+    add_column_if_missing(conn, "positions", "original_score", "REAL")
+    add_column_if_missing(conn, "positions", "original_signal", "TEXT")
+    add_column_if_missing(conn, "positions", "last_reviewed", "TEXT")
+    conn.execute("UPDATE users SET role='ADMIN' WHERE lower(email)=lower(?)", (ADMIN_EMAIL,))
+    conn.commit()
+    conn.close()
 
 
 init_database()
 
 # ==================================================
-# 3. HULPFUNCTIES
+# 4. VEILIGE ACCOUNTS
 # ==================================================
 
-
-def hash_password(password, salt=None):
-    if salt is None:
-        salt = secrets.token_hex(16)
-
-    password_hash = hashlib.sha256(
-        (password + salt).encode("utf-8")
-    ).hexdigest()
-
-    return password_hash, salt
+def password_hash(password, salt=None):
+    salt_bytes = bytes.fromhex(salt) if salt else secrets.token_bytes(32)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt_bytes, PBKDF2_ITERATIONS)
+    return digest.hex(), salt_bytes.hex()
 
 
-def verify_password(password, stored_hash, salt):
-    calculated_hash, _ = hash_password(password, salt)
-    return calculated_hash == stored_hash
-
-
-def valid_email(email):
-    return "@" in email and "." in email.split("@")[-1]
-
-
-def format_money(value, currency="€"):
-    if value is None or not np.isfinite(float(value)):
-        return f"{currency} 0,00"
-
-    return (
-        f"{currency} "
-        f"{float(value):,.2f}"
-        .replace(",", "X")
-        .replace(".", ",")
-        .replace("X", ".")
-    )
-
-
-def format_percentage(value):
-    if value is None or not np.isfinite(float(value)):
-        return "0,00%"
-
-    return f"{float(value):.2f}%".replace(".", ",")
-
-
-def safe_float(value, default=0.0):
+def register_user(first_name, last_name, email, password, start_balance):
+    email = email.strip().lower()
+    role = "ADMIN" if email == ADMIN_EMAIL.lower() else "USER"
+    digest, salt = password_hash(password)
+    now = datetime.now(timezone.utc).isoformat()
+    conn = db()
     try:
-        converted = float(value)
-        if np.isfinite(converted):
-            return converted
-        return default
-    except (TypeError, ValueError):
-        return default
-
-
-# ==================================================
-# 4. GEBRUIKERSFUNCTIES
-# ==================================================
-
-
-def create_user(
-    first_name,
-    last_name,
-    email,
-    password,
-    country,
-    experience,
-    trading_style,
-    starting_balance
-):
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    password_hash, salt = hash_password(password)
-    now = datetime.now().isoformat()
-
-    try:
-        cursor.execute(
-            """
-            INSERT INTO users (
-                first_name,
-                last_name,
-                email,
-                password_hash,
-                password_salt,
-                country,
-                experience,
-                trading_style,
-                created_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                first_name.strip(),
-                last_name.strip(),
-                email.lower().strip(),
-                password_hash,
-                salt,
-                country,
-                experience,
-                trading_style,
-                now
-            )
+        cur = conn.execute(
+            "INSERT INTO users(first_name,last_name,email,password_hash,password_salt,role,active,created_at) VALUES(?,?,?,?,?,?,1,?)",
+            (first_name.strip(), last_name.strip(), email, digest, salt, role, now),
         )
-
-        user_id = cursor.lastrowid
-
-        cursor.execute(
-            """
-            INSERT INTO paper_accounts (
-                user_id,
-                account_name,
-                initial_balance,
-                cash_balance,
-                realized_pnl,
-                risk_percentage,
-                created_at,
-                active
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                user_id,
-                "Hoofdaccount",
-                starting_balance,
-                starting_balance,
-                0.0,
-                1.0,
-                now,
-                1
-            )
+        user_id = cur.lastrowid
+        conn.execute(
+            "INSERT INTO paper_accounts(user_id,initial_balance,cash_balance,created_at) VALUES(?,?,?,?)",
+            (user_id, float(start_balance), float(start_balance), now),
         )
-
-        standard_watchlist = [
-            "ASML.AS",
-            "AAPL",
-            "MSFT",
-            "NVDA",
-            "BTC-USD",
-            "ETH-USD"
-        ]
-
-        for ticker in standard_watchlist:
-            cursor.execute(
-                """
-                INSERT OR IGNORE INTO watchlists (
-                    user_id,
-                    ticker,
-                    added_at
-                )
-                VALUES (?, ?, ?)
-                """,
-                (user_id, ticker, now)
-            )
-
-        connection.commit()
-        return True, "Account succesvol aangemaakt."
-
+        conn.execute("INSERT INTO user_settings(user_id) VALUES(?)", (user_id,))
+        for ticker in ["ASML.AS", "AAPL", "MSFT", "NVDA", "BTC-USD", "ETH-USD"]:
+            conn.execute("INSERT OR IGNORE INTO watchlists(user_id,ticker,created_at) VALUES(?,?,?)", (user_id, ticker, now))
+        conn.commit()
+        return True, "Account aangemaakt. Je kunt nu inloggen."
     except sqlite3.IntegrityError:
-        return False, "Dit e-mailadres is al geregistreerd."
-
-    except Exception as error:
-        return False, f"Account kon niet worden aangemaakt: {error}"
-
+        return False, "Dit e-mailadres bestaat al."
+    except Exception as exc:
+        return False, f"Registratie mislukt: {exc}"
     finally:
-        connection.close()
+        conn.close()
 
 
 def login_user(email, password):
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    cursor.execute(
-        """
-        SELECT *
-        FROM users
-        WHERE email = ?
-        """,
-        (email.lower().strip(),)
-    )
-
-    user = cursor.fetchone()
-
-    if user is None:
-        connection.close()
+    conn = db()
+    row = conn.execute("SELECT * FROM users WHERE lower(email)=lower(?)", (email.strip(),)).fetchone()
+    if not row or not row["active"]:
+        conn.close()
         return None
+    digest, _ = password_hash(password, row["password_salt"])
+    valid = hmac.compare_digest(digest, row["password_hash"])
+    if valid:
+        conn.execute("UPDATE users SET last_login=? WHERE id=?", (datetime.now(timezone.utc).isoformat(), row["id"]))
+        conn.commit()
+    conn.close()
+    return dict(row) if valid else None
 
-    if not verify_password(
-        password,
-        user["password_hash"],
-        user["password_salt"]
-    ):
-        connection.close()
+
+def current_user():
+    if not st.session_state.get("user_id"):
         return None
-
-    cursor.execute(
-        """
-        UPDATE users
-        SET last_login = ?
-        WHERE id = ?
-        """,
-        (datetime.now().isoformat(), user["id"])
-    )
-
-    connection.commit()
-    connection.close()
-
-    return dict(user)
-
-
-def get_user(user_id):
-    connection = get_connection()
-
-    row = connection.execute(
-        """
-        SELECT *
-        FROM users
-        WHERE id = ?
-        """,
-        (user_id,)
-    ).fetchone()
-
-    connection.close()
-
+    conn = db()
+    row = conn.execute("SELECT * FROM users WHERE id=? AND active=1", (st.session_state.user_id,)).fetchone()
+    conn.close()
     return dict(row) if row else None
 
 
-def get_account(user_id):
-    connection = get_connection()
-
-    row = connection.execute(
-        """
-        SELECT *
-        FROM paper_accounts
-        WHERE user_id = ? AND active = 1
-        ORDER BY id DESC
-        LIMIT 1
-        """,
-        (user_id,)
-    ).fetchone()
-
-    connection.close()
-
+def current_account(user_id):
+    conn = db()
+    row = conn.execute("SELECT * FROM paper_accounts WHERE user_id=? AND active=1 ORDER BY id DESC LIMIT 1", (user_id,)).fetchone()
+    conn.close()
     return dict(row) if row else None
 
-
 # ==================================================
-# 5. MARKTDATA
+# 5. MARKTDATA EN INDICATOREN
 # ==================================================
 
-
-@st.cache_data(ttl=20)
-def get_market_data(ticker, period="1y", interval="1d"):
+@st.cache_data(ttl=900, show_spinner=False)
+def ticker_history(ticker, period="1y", interval="1d"):
     try:
-        data = yf.download(
-            ticker,
-            period=period,
-            interval=interval,
-            auto_adjust=True,
-            progress=False,
-            threads=False
-        )
-
-        if data is None or data.empty:
+        frame = yf.download(ticker, period=period, interval=interval, auto_adjust=True, progress=False, threads=False)
+        if frame is None or frame.empty:
             return pd.DataFrame()
-
-        if isinstance(data.columns, pd.MultiIndex):
-            data.columns = data.columns.get_level_values(0)
-
-        required_columns = ["Open", "High", "Low", "Close", "Volume"]
-
-        for column in required_columns:
-            if column not in data.columns:
-                if column == "Volume":
-                    data[column] = 0
-                else:
-                    return pd.DataFrame()
-
-        data = data[required_columns].copy()
-        data = data.replace([np.inf, -np.inf], np.nan)
-        data = data.dropna(subset=["Close"])
-
-        return data
-
+        if isinstance(frame.columns, pd.MultiIndex):
+            frame.columns = frame.columns.get_level_values(0)
+        needed = ["Open", "High", "Low", "Close", "Volume"]
+        if not all(c in frame.columns for c in needed):
+            return pd.DataFrame()
+        return frame[needed].replace([np.inf, -np.inf], np.nan).dropna(subset=["Close"])
     except Exception:
         return pd.DataFrame()
 
 
-@st.cache_data(ttl=120)
-def get_market_news(ticker):
+@st.cache_data(ttl=300, show_spinner=False)
+def ticker_news(ticker):
     try:
-        product = yf.Ticker(ticker)
-        articles = product.news
-
-        if not articles:
-            return []
-
-        clean_articles = []
-
-        for article in articles[:15]:
-            content = article.get("content", article)
-
-            title = content.get(
-                "title",
-                article.get("title", "Geen titel beschikbaar")
-            )
-
-            provider_data = content.get("provider", {})
-            publisher = provider_data.get(
-                "displayName",
-                article.get("publisher", "Onbekende bron")
-            )
-
-            canonical_url = content.get("canonicalUrl", {})
-            link = canonical_url.get(
-                "url",
-                article.get("link", "")
-            )
-
-            summary = content.get(
-                "summary",
-                content.get("description", "")
-            )
-
-            published = content.get(
-                "pubDate",
-                article.get("providerPublishTime", "")
-            )
-
-            clean_articles.append(
-                {
-                    "title": title,
-                    "publisher": publisher,
-                    "link": link,
-                    "summary": summary,
-                    "published": str(published)
-                }
-            )
-
-        return clean_articles
-
+        raw = yf.Ticker(ticker).news or []
+        clean = []
+        for item in raw[:10]:
+            content = item.get("content", item)
+            provider = content.get("provider", {}) or {}
+            canonical = content.get("canonicalUrl", {}) or {}
+            clean.append({
+                "title": content.get("title", item.get("title", "Geen titel")),
+                "publisher": provider.get("displayName", item.get("publisher", "Onbekende bron")),
+                "url": canonical.get("url", item.get("link", "")),
+                "summary": content.get("summary", content.get("description", "")),
+                "published": str(content.get("pubDate", item.get("providerPublishTime", ""))),
+            })
+        return clean
     except Exception:
         return []
 
 
-# ==================================================
-# 6. TECHNISCHE INDICATOREN
-# ==================================================
+def indicators(df):
+    x = df.copy()
+    c = x["Close"]
+    x["EMA9"] = c.ewm(span=9, adjust=False).mean()
+    x["EMA21"] = c.ewm(span=21, adjust=False).mean()
+    x["SMA50"] = c.rolling(50).mean()
+    x["SMA200"] = c.rolling(200).mean()
+    delta = c.diff()
+    gain = delta.clip(lower=0).ewm(alpha=1 / 14, adjust=False).mean()
+    loss = (-delta.clip(upper=0)).ewm(alpha=1 / 14, adjust=False).mean()
+    x["RSI"] = (100 - 100 / (1 + gain / loss.replace(0, np.nan))).fillna(50)
+    ema12 = c.ewm(span=12, adjust=False).mean()
+    ema26 = c.ewm(span=26, adjust=False).mean()
+    x["MACD"] = ema12 - ema26
+    x["MACD_SIGNAL"] = x["MACD"].ewm(span=9, adjust=False).mean()
+    prev = c.shift(1)
+    tr = pd.concat([(x["High"] - x["Low"]), (x["High"] - prev).abs(), (x["Low"] - prev).abs()], axis=1).max(axis=1)
+    x["ATR"] = tr.rolling(14).mean()
+    x["VOL_AVG"] = x["Volume"].rolling(20).mean()
+    x["VOLUME_RATIO"] = x["Volume"] / x["VOL_AVG"].replace(0, np.nan)
+    x["VOLATILITY"] = c.pct_change().rolling(20).std() * np.sqrt(252) * 100
+    return x
+
+POSITIVE = ["beat", "growth", "upgrade", "approval", "partnership", "record", "profit", "buyback", "dividend", "strong", "surge"]
+NEGATIVE = ["miss", "warning", "downgrade", "lawsuit", "investigation", "hack", "loss", "weak", "bankruptcy", "layoff", "decline"]
 
 
-def calculate_rsi(series, period=14):
-    delta = series.diff()
-    gains = delta.clip(lower=0)
-    losses = -delta.clip(upper=0)
-
-    average_gain = gains.ewm(
-        alpha=1 / period,
-        adjust=False,
-        min_periods=period
-    ).mean()
-
-    average_loss = losses.ewm(
-        alpha=1 / period,
-        adjust=False,
-        min_periods=period
-    ).mean()
-
-    relative_strength = (
-        average_gain /
-        average_loss.replace(0, np.nan)
-    )
-
-    rsi = 100 - (100 / (1 + relative_strength))
-    return rsi.fillna(50)
-
-
-def calculate_indicators(data):
-    df = data.copy()
-
-    df["EMA9"] = df["Close"].ewm(
-        span=9,
-        adjust=False
-    ).mean()
-
-    df["EMA21"] = df["Close"].ewm(
-        span=21,
-        adjust=False
-    ).mean()
-
-    df["SMA20"] = df["Close"].rolling(20).mean()
-    df["SMA50"] = df["Close"].rolling(50).mean()
-    df["SMA200"] = df["Close"].rolling(200).mean()
-
-    df["RSI"] = calculate_rsi(df["Close"], 14)
-
-    ema12 = df["Close"].ewm(
-        span=12,
-        adjust=False
-    ).mean()
-
-    ema26 = df["Close"].ewm(
-        span=26,
-        adjust=False
-    ).mean()
-
-    df["MACD"] = ema12 - ema26
-
-    df["MACD_SIGNAL"] = df["MACD"].ewm(
-        span=9,
-        adjust=False
-    ).mean()
-
-    df["MACD_HISTOGRAM"] = (
-        df["MACD"] - df["MACD_SIGNAL"]
-    )
-
-    rolling_std = df["Close"].rolling(20).std()
-
-    df["BOLLINGER_UPPER"] = (
-        df["SMA20"] + 2 * rolling_std
-    )
-
-    df["BOLLINGER_LOWER"] = (
-        df["SMA20"] - 2 * rolling_std
-    )
-
-    previous_close = df["Close"].shift(1)
-
-    true_range = pd.concat(
-        [
-            df["High"] - df["Low"],
-            abs(df["High"] - previous_close),
-            abs(df["Low"] - previous_close)
-        ],
-        axis=1
-    ).max(axis=1)
-
-    df["ATR"] = true_range.rolling(14).mean()
-
-    df["VOLUME_AVERAGE"] = (
-        df["Volume"].rolling(20).mean()
-    )
-
-    df["VOLUME_RATIO"] = (
-        df["Volume"] /
-        df["VOLUME_AVERAGE"].replace(0, np.nan)
-    )
-
-    df["RETURN"] = df["Close"].pct_change()
-
-    df["VOLATILITY"] = (
-        df["RETURN"].rolling(20).std()
-        * np.sqrt(252)
-        * 100
-    )
-
-    df["RUNNING_MAX"] = df["Close"].cummax()
-
-    df["DRAWDOWN"] = (
-        (df["Close"] / df["RUNNING_MAX"]) - 1
-    ) * 100
-
-    return df
-
-
-# ==================================================
-# 7. NIEUWSSENTIMENT
-# ==================================================
-
-
-POSITIVE_WORDS = [
-    "growth",
-    "profit",
-    "beat",
-    "record",
-    "approval",
-    "partnership",
-    "upgrade",
-    "increase",
-    "surge",
-    "gain",
-    "positive",
-    "bullish",
-    "buyback",
-    "dividend",
-    "strong",
-    "outperform",
-    "expansion"
-]
-
-NEGATIVE_WORDS = [
-    "loss",
-    "warning",
-    "miss",
-    "downgrade",
-    "lawsuit",
-    "investigation",
-    "decline",
-    "fall",
-    "negative",
-    "bearish",
-    "hack",
-    "bankruptcy",
-    "layoffs",
-    "recession",
-    "weak",
-    "underperform",
-    "risk"
-]
-
-
-def analyze_news_sentiment(news):
+def news_score(news):
     if not news:
-        return 50, "NEUTRAAL", []
+        return 50.0
+    points = 0
+    for item in news:
+        text = (item.get("title", "") + " " + item.get("summary", "")).lower()
+        points += sum(w in text for w in POSITIVE)
+        points -= sum(w in text for w in NEGATIVE)
+    return float(max(0, min(100, 50 + points * 5)))
 
-    scored_articles = []
 
-    for article in news:
-        combined_text = (
-            f"{article.get('title', '')} "
-            f"{article.get('summary', '')}"
-        ).lower()
-
-        positive_count = sum(
-            1 for word in POSITIVE_WORDS
-            if word in combined_text
-        )
-
-        negative_count = sum(
-            1 for word in NEGATIVE_WORDS
-            if word in combined_text
-        )
-
-        score = positive_count - negative_count
-
-        scored_articles.append(
-            {
-                **article,
-                "sentiment_points": score
-            }
-        )
-
-    total_score = sum(
-        article["sentiment_points"]
-        for article in scored_articles
-    )
-
-    normalized_score = 50 + (total_score * 5)
-    normalized_score = max(0, min(100, normalized_score))
-
-    if normalized_score >= 60:
-        label = "POSITIEF"
-    elif normalized_score <= 40:
-        label = "NEGATIEF"
+def analyze_ticker(ticker, category=None, include_news=False):
+    df = ticker_history(ticker)
+    category = category or TICKER_CATEGORY.get(ticker, "Overig")
+    if df.empty or len(df) < 60:
+        return {"ticker": ticker, "category": category, "signal": "ONVOLDOENDE DATA", "scan_error": "Minder dan 60 candles", "data_quality": 0}
+    x = indicators(df)
+    last = x.iloc[-1]
+    prev = x.iloc[-2]
+    values = {k: float(last[k]) if pd.notna(last[k]) else np.nan for k in ["Close","EMA9","EMA21","SMA50","SMA200","RSI","MACD","MACD_SIGNAL","VOLUME_RATIO","ATR","VOLATILITY"]}
+    essentials = [values["Close"], values["EMA9"], values["EMA21"], values["SMA50"], values["RSI"], values["MACD"], values["MACD_SIGNAL"], values["ATR"]]
+    quality = 100.0 * sum(np.isfinite(v) for v in essentials) / len(essentials)
+    score = 0.0
+    reasons_for, reasons_against = [], []
+    if values["EMA9"] > values["EMA21"]:
+        score += 12; reasons_for.append("EMA9 ligt boven EMA21")
     else:
-        label = "NEUTRAAL"
-
-    return normalized_score, label, scored_articles
-
-
-# ==================================================
-# 8. HISTORISCHE ANALYSE
-# ==================================================
-
-
-def calculate_historical_statistics(data):
-    if data.empty or len(data) < 30:
-        return {}
-
-    close = data["Close"].dropna()
-    returns = close.pct_change().dropna()
-
-    if returns.empty:
-        return {}
-
-    rolling_max = close.cummax()
-    drawdown = ((close / rolling_max) - 1) * 100
-
-    statistics = {
-        "days": len(close),
-        "return_7d": (
-            (close.iloc[-1] / close.iloc[-8]) - 1
-        ) * 100 if len(close) >= 8 else 0,
-        "return_30d": (
-            (close.iloc[-1] / close.iloc[-31]) - 1
-        ) * 100 if len(close) >= 31 else 0,
-        "return_90d": (
-            (close.iloc[-1] / close.iloc[-91]) - 1
-        ) * 100 if len(close) >= 91 else 0,
-        "total_return": (
-            (close.iloc[-1] / close.iloc[0]) - 1
-        ) * 100,
-        "annual_volatility": (
-            returns.std() * np.sqrt(252) * 100
-        ),
-        "max_drawdown": drawdown.min(),
-        "positive_days": (
-            (returns > 0).mean() * 100
-        ),
-        "highest_price": close.max(),
-        "lowest_price": close.min(),
-        "average_daily_return": returns.mean() * 100
-    }
-
-    return statistics
-
-
-# ==================================================
-# 9. ANALYSE ENGINE
-# ==================================================
-
-
-def generate_analysis(data, news):
-    if data.empty or len(data) < 30:
-        return {
-            "score": 50,
-            "signal": "ONVOLDOENDE DATA",
-            "reasons_for": [],
-            "reasons_against": [],
-            "news_score": 50,
-            "news_label": "NEUTRAAL",
-            "confidence": 0,
-            "stop_loss": 0,
-            "target_1": 0,
-            "target_2": 0,
-            "summary": "Onvoldoende gegevens beschikbaar."
-        }
-
-    df = calculate_indicators(data)
-    latest = df.iloc[-1]
-
-    price = safe_float(latest["Close"])
-    ema9 = safe_float(latest["EMA9"], price)
-    ema21 = safe_float(latest["EMA21"], price)
-    sma50 = safe_float(latest["SMA50"], price)
-    sma200 = safe_float(latest["SMA200"], price)
-    rsi = safe_float(latest["RSI"], 50)
-    macd = safe_float(latest["MACD"])
-    macd_signal = safe_float(latest["MACD_SIGNAL"])
-    volume_ratio = safe_float(
-        latest["VOLUME_RATIO"],
-        1
-    )
-    atr = safe_float(
-        latest["ATR"],
-        price * 0.02
-    )
-
-    technical_score = 50
-    reasons_for = []
-    reasons_against = []
-
-    if ema9 > ema21:
-        technical_score += 12
-        reasons_for.append(
-            "EMA9 ligt boven EMA21, wat op positief kortetermijnmomentum wijst."
-        )
+        reasons_against.append("EMA9 ligt onder EMA21")
+    if values["Close"] > values["SMA50"]:
+        score += 13; reasons_for.append("Koers noteert boven SMA50")
     else:
-        technical_score -= 12
-        reasons_against.append(
-            "EMA9 ligt onder EMA21, wat op zwak kortetermijnmomentum wijst."
-        )
-
-    if sma50 > sma200:
-        technical_score += 12
-        reasons_for.append(
-            "SMA50 ligt boven SMA200, wat de langere opwaartse trend ondersteunt."
-        )
+        reasons_against.append("Koers noteert onder SMA50")
+    if np.isfinite(values["SMA200"]) and values["SMA50"] > values["SMA200"]:
+        score += 8; reasons_for.append("Langetermijntrend is positief")
+    if values["MACD"] > values["MACD_SIGNAL"]:
+        score += 10; reasons_for.append("MACD bevestigt positief momentum")
     else:
-        technical_score -= 8
-        reasons_against.append(
-            "SMA50 ligt niet boven SMA200."
-        )
-
-    if 45 <= rsi <= 65:
-        technical_score += 7
-        reasons_for.append(
-            f"RSI is {rsi:.1f} en bevindt zich in een gezonde momentumzone."
-        )
-    elif rsi > 70:
-        technical_score -= 8
-        reasons_against.append(
-            f"RSI is {rsi:.1f}. De asset kan technisch oververhit zijn."
-        )
+        reasons_against.append("MACD is bearish")
+    rsi = values["RSI"]
+    if 45 <= rsi <= 68:
+        score += 10; reasons_for.append(f"RSI {rsi:.1f} ligt in gunstige zone")
+    elif rsi > 75:
+        reasons_against.append(f"RSI {rsi:.1f} is relatief hoog")
     elif rsi < 30:
-        technical_score += 3
-        reasons_for.append(
-            f"RSI is {rsi:.1f}. De asset bevindt zich in een relatief lage zone."
-        )
-
-    if macd > macd_signal:
-        technical_score += 10
-        reasons_for.append(
-            "MACD ligt boven de signaallijn."
-        )
+        score += 4; reasons_for.append(f"RSI {rsi:.1f} is relatief laag")
+    vr = values["VOLUME_RATIO"] if np.isfinite(values["VOLUME_RATIO"]) else 1.0
+    if vr >= 1.2:
+        score += 10; reasons_for.append(f"Volume is {vr:.2f}x gemiddeld")
+    elif vr < 0.7:
+        reasons_against.append("Volume is laag")
+    atr = values["ATR"] if values["ATR"] > 0 else values["Close"] * 0.02
+    entry = values["Close"]
+    stop = max(0.0001, entry - 1.5 * atr)
+    target1 = entry + 2.7 * atr
+    target2 = entry + 4.0 * atr
+    rr = (target1 - entry) / max(entry - stop, 1e-9)
+    if rr >= 1.8:
+        score += 10; reasons_for.append(f"Risk/reward is {rr:.2f}")
     else:
-        technical_score -= 10
-        reasons_against.append(
-            "MACD ligt onder de signaallijn."
-        )
-
-    if volume_ratio > 1.2:
-        technical_score += 5
-        reasons_for.append(
-            "Het volume ligt boven het twintigdaagse gemiddelde."
-        )
-
-    news_score, news_label, scored_news = (
-        analyze_news_sentiment(news)
-    )
-
-    combined_score = (
-        technical_score * 0.75 +
-        news_score * 0.25
-    )
-
-    combined_score = max(0, min(100, combined_score))
-
-    if combined_score >= 75:
-        signal = "STERK BULLISH"
-    elif combined_score >= 60:
-        signal = "BULLISH"
-    elif combined_score >= 40:
-        signal = "NEUTRAAL"
-    elif combined_score >= 25:
-        signal = "BEARISH"
+        reasons_against.append(f"Risk/reward is slechts {rr:.2f}")
+    score += min(5, quality / 20)
+    nscore = news_score(ticker_news(ticker)) if include_news else 50.0
+    technical_score = max(0, min(100, score * 100 / 78))
+    total_score = technical_score * 0.9 + nscore * 0.1
+    if quality < 75:
+        signal = "ONVOLDOENDE DATA"
+    elif total_score >= 78 and technical_score >= 70 and rr >= 1.8:
+        signal = "STERKE PAPER BUY SETUP"
+    elif total_score >= 68 and technical_score >= 65 and rr >= 1.5:
+        signal = "PAPER BUY SETUP"
+    elif total_score >= 55:
+        signal = "WACHT OP BEVESTIGING"
+    elif total_score >= 40:
+        signal = "HOLD / BEWAKEN"
     else:
-        signal = "STERK BEARISH"
-
-    confidence = min(
-        90,
-        40
-        + len(reasons_for) * 8
-        + min(len(news), 5) * 3
-    )
-
-    stop_loss = max(
-        0.01,
-        price - (2 * atr)
-    )
-
-    target_1 = price + (2 * atr)
-    target_2 = price + (3 * atr)
-
-    if combined_score >= 60:
-        summary = (
-            "De combinatie van technische indicatoren en "
-            "beschikbaar nieuwssentiment is relatief positief. "
-            "Wacht bij paper trading op prijsbevestiging, "
-            "voldoende volume en een geldige stop-loss."
-        )
-    elif combined_score <= 40:
-        summary = (
-            "De huidige combinatie van technische indicatoren "
-            "en nieuwssentiment is relatief zwak. Een nieuwe "
-            "paperpositie vereist extra bevestiging."
-        )
-    else:
-        summary = (
-            "De beschikbare gegevens geven geen duidelijke richting. "
-            "Wachten op bevestiging is het meest voorzichtige scenario."
-        )
-
+        signal = "PAPER SELL / REDUCE"
+    daily = (values["Close"] / float(prev["Close"]) - 1) * 100 if prev["Close"] else 0
+    weekly = (values["Close"] / float(x["Close"].iloc[-6]) - 1) * 100 if len(x) >= 6 else 0
+    monthly = (values["Close"] / float(x["Close"].iloc[-22]) - 1) * 100 if len(x) >= 22 else 0
+    confidence = min(95.0, 35 + len(reasons_for) * 7 + quality * 0.2)
     return {
-        "score": combined_score,
-        "signal": signal,
-        "reasons_for": reasons_for,
-        "reasons_against": reasons_against,
-        "news_score": news_score,
-        "news_label": news_label,
-        "scored_news": scored_news,
-        "confidence": confidence,
-        "stop_loss": stop_loss,
-        "target_1": target_1,
-        "target_2": target_2,
-        "summary": summary,
-        "rsi": rsi,
-        "ema9": ema9,
-        "ema21": ema21,
-        "atr": atr
+        "ticker": ticker, "category": category, "price": entry, "daily_change": daily, "weekly_change": weekly,
+        "monthly_change": monthly, "ema9": values["EMA9"], "ema21": values["EMA21"], "sma50": values["SMA50"],
+        "sma200": values["SMA200"], "rsi": rsi, "macd": values["MACD"], "macd_signal": values["MACD_SIGNAL"],
+        "volume_ratio": vr, "atr": atr, "volatility": values["VOLATILITY"], "technical_score": technical_score,
+        "news_score": nscore, "total_score": total_score, "signal": signal, "confidence": confidence,
+        "entry_zone": entry, "stop_loss": stop, "target_1": target1, "target_2": target2, "risk_reward": rr,
+        "data_quality": quality, "last_update": datetime.now(timezone.utc).isoformat(), "scan_error": "",
+        "reasons_for": reasons_for, "reasons_against": reasons_against,
     }
 
-
 # ==================================================
-# 10. WATCHLIST
+# 6. SCANNER
 # ==================================================
 
-
-def get_watchlist(user_id):
-    connection = get_connection()
-
-    rows = connection.execute(
-        """
-        SELECT ticker
-        FROM watchlists
-        WHERE user_id = ?
-        ORDER BY ticker
-        """,
-        (user_id,)
-    ).fetchall()
-
-    connection.close()
-
-    return [row["ticker"] for row in rows]
+SCANNER_COLUMNS = ["ticker","category","price","daily_change","weekly_change","monthly_change","ema9","ema21","sma50","sma200","rsi","macd","macd_signal","volume_ratio","atr","volatility","technical_score","news_score","total_score","signal","confidence","entry_zone","stop_loss","target_1","target_2","risk_reward","data_quality","last_update","scan_error"]
 
 
-def add_watchlist_item(user_id, ticker):
-    ticker = ticker.upper().strip()
+def save_scan(result):
+    conn = db()
+    payload = [result.get(c) for c in SCANNER_COLUMNS]
+    placeholders = ",".join("?" for _ in SCANNER_COLUMNS)
+    updates = ",".join(f"{c}=excluded.{c}" for c in SCANNER_COLUMNS[1:])
+    conn.execute(f"INSERT INTO scanner_results({','.join(SCANNER_COLUMNS)}) VALUES({placeholders}) ON CONFLICT(ticker) DO UPDATE SET {updates}", payload)
+    conn.commit(); conn.close()
 
-    if not ticker:
-        return False
 
-    connection = get_connection()
+def last_scan_time():
+    conn = db(); row = conn.execute("SELECT MAX(last_update) AS t FROM scanner_results WHERE scan_error='' ").fetchone(); conn.close()
+    return row["t"] if row and row["t"] else None
 
+
+def scanner_is_stale():
+    latest = last_scan_time()
+    if not latest: return True
     try:
-        connection.execute(
-            """
-            INSERT OR IGNORE INTO watchlists (
-                user_id,
-                ticker,
-                added_at
-            )
-            VALUES (?, ?, ?)
-            """,
-            (
-                user_id,
-                ticker,
-                datetime.now().isoformat()
-            )
-        )
-
-        connection.commit()
+        return datetime.now(timezone.utc) - datetime.fromisoformat(latest) > timedelta(minutes=SCAN_MAX_AGE_MINUTES)
+    except Exception:
         return True
 
-    finally:
-        connection.close()
+
+def scan_market_universe(limit=None, progress=None):
+    tickers = ALL_TICKERS[:limit] if limit else ALL_TICKERS
+    for index, ticker in enumerate(tickers):
+        result = analyze_ticker(ticker, TICKER_CATEGORY[ticker], include_news=False)
+        save_scan(result)
+        if progress:
+            progress.progress((index + 1) / len(tickers), text=f"Scan {index+1}/{len(tickers)}: {ticker}")
+    return len(tickers)
 
 
-def remove_watchlist_item(user_id, ticker):
-    connection = get_connection()
-
-    connection.execute(
-        """
-        DELETE FROM watchlists
-        WHERE user_id = ? AND ticker = ?
-        """,
-        (user_id, ticker)
-    )
-
-    connection.commit()
-    connection.close()
-
+def load_scan_results():
+    conn = db()
+    frame = pd.read_sql_query("SELECT * FROM scanner_results WHERE active=1", conn)
+    conn.close()
+    return frame
 
 # ==================================================
-# 11. PAPER TRADING
+# 7. PORTFOLIO EN PAPER TRADING
 # ==================================================
 
+def open_positions(user_id, account_id):
+    conn = db(); rows = conn.execute("SELECT * FROM positions WHERE user_id=? AND account_id=? AND status='OPEN' ORDER BY opened_at DESC", (user_id, account_id)).fetchall(); conn.close()
+    return [dict(r) for r in rows]
 
-def open_position(
-    user_id,
-    account_id,
-    ticker,
-    quantity,
-    entry_price,
-    stop_loss,
-    take_profit,
-    strategy
-):
-    connection = get_connection()
-    cursor = connection.cursor()
 
-    account = cursor.execute(
-        """
-        SELECT *
-        FROM paper_accounts
-        WHERE id = ? AND user_id = ?
-        """,
-        (account_id, user_id)
-    ).fetchone()
+def trade_history(user_id, account_id):
+    conn = db(); rows = conn.execute("SELECT * FROM trades WHERE user_id=? AND account_id=? ORDER BY closed_at DESC", (user_id, account_id)).fetchall(); conn.close()
+    return [dict(r) for r in rows]
 
-    if account is None:
-        connection.close()
-        return False, "Paper-account niet gevonden."
 
-    order_value = quantity * entry_price
+def position_size(account_value, cash, entry, stop, risk_pct, allocation_pct):
+    risk_eur = account_value * risk_pct / 100
+    risk_unit = abs(entry - stop)
+    if entry <= 0 or risk_unit <= 0:
+        return 0, risk_eur
+    by_risk = math.floor(risk_eur / risk_unit)
+    by_cash = math.floor(cash / entry)
+    by_allocation = math.floor(account_value * allocation_pct / 100 / entry)
+    return max(0, min(by_risk, by_cash, by_allocation)), risk_eur
 
-    if order_value > account["cash_balance"]:
-        connection.close()
-        return False, "Onvoldoende virtueel saldo."
 
-    cursor.execute(
-        """
-        UPDATE paper_accounts
-        SET cash_balance = cash_balance - ?
-        WHERE id = ?
-        """,
-        (order_value, account_id)
+def create_position(user, account, ticker, quantity, entry, stop, target, strategy, analysis):
+    cost = quantity * entry
+    if quantity <= 0 or cost > account["cash_balance"]:
+        return False, "Ongeldig aantal of onvoldoende virtueel saldo."
+    conn = db()
+    conn.execute("UPDATE paper_accounts SET cash_balance=cash_balance-? WHERE id=?", (cost, account["id"]))
+    conn.execute(
+        "INSERT INTO positions(user_id,account_id,ticker,quantity,entry_price,stop_loss,take_profit,strategy,original_score,original_signal,opened_at,last_reviewed,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?, 'OPEN')",
+        (user["id"], account["id"], ticker, quantity, entry, stop, target, strategy, analysis.get("total_score"), analysis.get("signal"), datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat()),
     )
-
-    cursor.execute(
-        """
-        INSERT INTO positions (
-            user_id,
-            account_id,
-            ticker,
-            direction,
-            quantity,
-            entry_price,
-            stop_loss,
-            take_profit,
-            strategy,
-            opened_at,
-            status
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            user_id,
-            account_id,
-            ticker,
-            "LONG",
-            quantity,
-            entry_price,
-            stop_loss,
-            take_profit,
-            strategy,
-            datetime.now().isoformat(),
-            "OPEN"
-        )
-    )
-
-    connection.commit()
-    connection.close()
-
-    return True, "Virtuele positie succesvol geopend."
+    conn.commit(); conn.close()
+    return True, "Virtuele positie geopend."
 
 
-def get_open_positions(user_id, account_id):
-    connection = get_connection()
-
-    rows = connection.execute(
-        """
-        SELECT *
-        FROM positions
-        WHERE user_id = ?
-        AND account_id = ?
-        AND status = 'OPEN'
-        ORDER BY opened_at DESC
-        """,
-        (user_id, account_id)
-    ).fetchall()
-
-    connection.close()
-
-    return [dict(row) for row in rows]
+def close_position_fraction(user_id, account_id, position_id, fraction, exit_price, reason):
+    conn = db(); pos = conn.execute("SELECT * FROM positions WHERE id=? AND user_id=? AND account_id=? AND status='OPEN'", (position_id, user_id, account_id)).fetchone()
+    if not pos:
+        conn.close(); return False, "Positie niet gevonden."
+    qty_close = float(pos["quantity"]) * fraction
+    qty_left = float(pos["quantity"]) - qty_close
+    pnl = (exit_price - float(pos["entry_price"])) * qty_close
+    pnl_pct = (exit_price / float(pos["entry_price"]) - 1) * 100 if pos["entry_price"] else 0
+    conn.execute("UPDATE paper_accounts SET cash_balance=cash_balance+?, realized_pnl=realized_pnl+? WHERE id=?", (qty_close * exit_price, pnl, account_id))
+    if qty_left <= 1e-9:
+        conn.execute("UPDATE positions SET status='CLOSED', quantity=0 WHERE id=?", (position_id,))
+    else:
+        conn.execute("UPDATE positions SET quantity=? WHERE id=?", (qty_left, position_id))
+    conn.execute("INSERT INTO trades(user_id,account_id,ticker,quantity,entry_price,exit_price,pnl,pnl_pct,strategy,close_reason,opened_at,closed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", (user_id,account_id,pos["ticker"],qty_close,pos["entry_price"],exit_price,pnl,pnl_pct,pos["strategy"],reason,pos["opened_at"],datetime.now(timezone.utc).isoformat()))
+    conn.commit(); conn.close(); return True, "Paperpositie aangepast."
 
 
-def close_position(
-    user_id,
-    account_id,
-    position_id,
-    exit_price,
-    close_reason
-):
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    position = cursor.execute(
-        """
-        SELECT *
-        FROM positions
-        WHERE id = ?
-        AND user_id = ?
-        AND account_id = ?
-        AND status = 'OPEN'
-        """,
-        (position_id, user_id, account_id)
-    ).fetchone()
-
-    if position is None:
-        connection.close()
-        return False, "Positie niet gevonden."
-
-    quantity = position["quantity"]
-    entry_price = position["entry_price"]
-
-    proceeds = quantity * exit_price
-    pnl = (exit_price - entry_price) * quantity
-
-    pnl_percentage = (
-        ((exit_price / entry_price) - 1) * 100
-        if entry_price > 0
-        else 0
-    )
-
-    cursor.execute(
-        """
-        UPDATE paper_accounts
-        SET
-            cash_balance = cash_balance + ?,
-            realized_pnl = realized_pnl + ?
-        WHERE id = ?
-        """,
-        (proceeds, pnl, account_id)
-    )
-
-    cursor.execute(
-        """
-        UPDATE positions
-        SET status = 'CLOSED'
-        WHERE id = ?
-        """,
-        (position_id,)
-    )
-
-    cursor.execute(
-        """
-        INSERT INTO trades (
-            user_id,
-            account_id,
-            ticker,
-            direction,
-            quantity,
-            entry_price,
-            exit_price,
-            stop_loss,
-            take_profit,
-            pnl,
-            pnl_percentage,
-            strategy,
-            close_reason,
-            opened_at,
-            closed_at,
-            notes
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            user_id,
-            account_id,
-            position["ticker"],
-            position["direction"],
-            quantity,
-            entry_price,
-            exit_price,
-            position["stop_loss"],
-            position["take_profit"],
-            pnl,
-            pnl_percentage,
-            position["strategy"],
-            close_reason,
-            position["opened_at"],
-            datetime.now().isoformat(),
-            ""
-        )
-    )
-
-    connection.commit()
-    connection.close()
-
-    return True, "Positie succesvol gesloten."
-
-
-def get_trade_history(user_id, account_id):
-    connection = get_connection()
-
-    rows = connection.execute(
-        """
-        SELECT *
-        FROM trades
-        WHERE user_id = ?
-        AND account_id = ?
-        ORDER BY closed_at DESC
-        """,
-        (user_id, account_id)
-    ).fetchall()
-
-    connection.close()
-
-    return [dict(row) for row in rows]
-
+def portfolio_summary(user, account):
+    positions = open_positions(user["id"], account["id"])
+    invested = 0.0; open_pnl = 0.0; live = []
+    for p in positions:
+        analysis = analyze_ticker(p["ticker"], TICKER_CATEGORY.get(p["ticker"], "Watchlist"), include_news=False)
+        price = analysis.get("price", p["entry_price"]) if not analysis.get("scan_error") else p["entry_price"]
+        value = price * p["quantity"]
+        pnl = (price - p["entry_price"]) * p["quantity"]
+        invested += value; open_pnl += pnl
+        live.append({**p, "current_price": price, "market_value": value, "open_pnl": pnl, "analysis": analysis})
+    return {"cash": account["cash_balance"], "invested": invested, "open_pnl": open_pnl, "equity": account["cash_balance"] + invested, "positions": live}
 
 # ==================================================
-# 12. AUTHENTICATIEPAGINA
+# 8. AUTHENTICATIE
 # ==================================================
 
-
-def show_authentication():
-    st.title("🌐 GLOBAL TRADING INTELLIGENCE")
-
-    st.caption(
-        "Professional Paper Trading, Historical Analysis "
-        "and Market Intelligence"
-    )
-
-    st.warning(
-        "Dit platform is uitsluitend bedoeld voor educatie "
-        "en paper trading met fictief geld."
-    )
-
-    login_tab, register_tab = st.tabs(
-        ["🔐 Inloggen", "📝 Account aanmaken"]
-    )
-
+def auth_screen():
+    st.title(f"🌐 {APP_NAME}")
+    st.caption("Professional Paper Trading & Market Intelligence")
+    st.warning(DISCLAIMER)
+    login_tab, register_tab = st.tabs(["🔐 Inloggen", "📝 Registreren"])
     with login_tab:
-        st.subheader("Inloggen")
-
-        email = st.text_input(
-            "E-mailadres",
-            key="login_email"
-        )
-
-        password = st.text_input(
-            "Wachtwoord",
-            type="password",
-            key="login_password"
-        )
-
-        if st.button(
-            "Inloggen",
-            use_container_width=True,
-            type="primary"
-        ):
+        email = st.text_input("E-mailadres", key="login_email")
+        password = st.text_input("Wachtwoord", type="password", key="login_password")
+        if st.button("Inloggen", type="primary", use_container_width=True):
             user = login_user(email, password)
-
             if user:
                 st.session_state.user_id = user["id"]
-                st.success("Succesvol ingelogd.")
                 st.rerun()
             else:
-                st.error(
-                    "Onjuist e-mailadres of wachtwoord."
-                )
-
+                st.error("Onjuiste gegevens of het account is geblokkeerd.")
     with register_tab:
-        st.subheader("Account aanmaken")
-
-        column_1, column_2 = st.columns(2)
-
-        with column_1:
-            first_name = st.text_input(
-                "Voornaam",
-                key="register_first_name"
-            )
-
-            last_name = st.text_input(
-                "Achternaam",
-                key="register_last_name"
-            )
-
-            register_email = st.text_input(
-                "E-mailadres",
-                key="register_email"
-            )
-
-            register_password = st.text_input(
-                "Wachtwoord",
-                type="password",
-                key="register_password"
-            )
-
-            confirm_password = st.text_input(
-                "Wachtwoord bevestigen",
-                type="password",
-                key="confirm_password"
-            )
-
-        with column_2:
-            country = st.selectbox(
-                "Land",
-                [
-                    "Nederland",
-                    "België",
-                    "Duitsland",
-                    "Verenigd Koninkrijk",
-                    "Verenigde Staten",
-                    "Anders"
-                ]
-            )
-
-            experience = st.selectbox(
-                "Ervaringsniveau",
-                [
-                    "Volledig beginner",
-                    "Beginner",
-                    "Gemiddeld",
-                    "Ervaren"
-                ]
-            )
-
-            trading_style = st.selectbox(
-                "Tradingstijl",
-                [
-                    "Swingtrading",
-                    "Daytrading",
-                    "Position trading",
-                    "Lange termijn analyse"
-                ]
-            )
-
-            starting_balance = st.selectbox(
-                "Virtueel startkapitaal",
-                [
-                    1000.0,
-                    2500.0,
-                    5000.0,
-                    10000.0,
-                    25000.0,
-                    50000.0,
-                    100000.0
-                ],
-                index=3,
-                format_func=lambda value: format_money(value)
-            )
-
-        accept_conditions = st.checkbox(
-            "Ik ga akkoord met de algemene voorwaarden en privacyvoorwaarden."
-        )
-
-        accept_paper = st.checkbox(
-            "Ik begrijp dat alle transacties fictief zijn."
-        )
-
-        accept_advice = st.checkbox(
-            "Ik begrijp dat analyses geen persoonlijk financieel advies zijn."
-        )
-
-        if st.button(
-            "Account registreren",
-            use_container_width=True,
-            type="primary"
-        ):
-            errors = []
-
-            if not first_name.strip():
-                errors.append("Vul je voornaam in.")
-
-            if not valid_email(register_email):
-                errors.append(
-                    "Vul een geldig e-mailadres in."
-                )
-
-            if len(register_password) < 8:
-                errors.append(
-                    "Het wachtwoord moet minimaal acht tekens bevatten."
-                )
-
-            if register_password != confirm_password:
-                errors.append(
-                    "De wachtwoorden komen niet overeen."
-                )
-
-            if not (
-                accept_conditions
-                and accept_paper
-                and accept_advice
-            ):
-                errors.append(
-                    "Accepteer alle voorwaarden."
-                )
-
-            if errors:
-                for error in errors:
-                    st.error(error)
+        c1, c2 = st.columns(2)
+        with c1:
+            first = st.text_input("Voornaam", key="reg_first")
+            last = st.text_input("Achternaam", key="reg_last")
+            email = st.text_input("E-mailadres", key="reg_email")
+        with c2:
+            password = st.text_input("Wachtwoord", type="password", key="reg_password")
+            confirm = st.text_input("Bevestig wachtwoord", type="password", key="reg_confirm")
+            start = st.selectbox("Virtueel startkapitaal", [1000,2500,5000,10000,25000,50000,100000], index=3)
+        agree = st.checkbox("Ik begrijp dat dit paper trading is en geen financieel advies.")
+        if st.button("Account aanmaken", type="primary", use_container_width=True):
+            if not first.strip() or "@" not in email or len(password) < 8 or password != confirm or not agree:
+                st.error("Controleer de velden. Wachtwoord minimaal 8 tekens en voorwaarden accepteren.")
             else:
-                success, message = create_user(
-                    first_name,
-                    last_name,
-                    register_email,
-                    register_password,
-                    country,
-                    experience,
-                    trading_style,
-                    starting_balance
-                )
-
-                if success:
-                    st.success(message)
-                else:
-                    st.error(message)
-
-
-# ==================================================
-# 13. SESSION STATE
-# ==================================================
+                ok, message = register_user(first, last, email, password, start)
+                st.success(message) if ok else st.error(message)
 
 if "user_id" not in st.session_state:
     st.session_state.user_id = None
+if not st.session_state.user_id:
+    auth_screen(); st.stop()
 
-if st.session_state.user_id is None:
-    show_authentication()
-    st.stop()
-
-current_user = get_user(st.session_state.user_id)
-current_account = get_account(st.session_state.user_id)
-
-if current_user is None or current_account is None:
-    st.session_state.user_id = None
-    st.error("De accountsessie is niet meer geldig.")
-    st.stop()
+user = current_user()
+if not user:
+    st.session_state.user_id = None; st.rerun()
+account = current_account(user["id"])
+portfolio = portfolio_summary(user, account)
 
 # ==================================================
-# 14. SIDEBAR EN NAVIGATIE
+# 9. NAVIGATIE
 # ==================================================
 
 st.sidebar.title("📈 GLOBAL TRADING")
+st.sidebar.caption(f"{user['first_name']} {user['last_name']} | {user['role']}")
+pages = ["🏠 Home","🔎 Market Scanner","📊 Assetanalyse","📰 Nieuws","🎮 Paper Trading","💼 Open Posities","📓 Trading Journal","📈 Performance","⭐ Watchlist","⚙️ Instellingen"]
+if user["role"] == "ADMIN":
+    pages.append("🛡️ Beheer")
+page = st.sidebar.radio("Navigatie", pages)
+if st.sidebar.button("🔐 Uitloggen", use_container_width=True):
+    st.session_state.user_id = None; st.rerun()
 
-st.sidebar.caption(
-    f"Ingelogd als {current_user['first_name']} "
-    f"{current_user['last_name']}"
-)
-
-page = st.sidebar.radio(
-    "Navigatie",
-    [
-        "🏠 Dashboard",
-        "📊 Assetanalyse",
-        "📰 Nieuws",
-        "🎮 Paper Trading",
-        "💼 Open Posities",
-        "📓 Trading Journal",
-        "📈 Prestaties",
-        "⭐ Watchlist",
-        "🎓 Trading Academy",
-        "👤 Mijn Account"
-    ]
-)
-
-st.sidebar.divider()
-st.sidebar.subheader("⭐ Watchlist")
-
-watchlist = get_watchlist(st.session_state.user_id)
-
-new_ticker = st.sidebar.text_input(
-    "Nieuwe ticker",
-    placeholder="Bijvoorbeeld ASML.AS of BTC-USD"
-).upper().strip()
-
-if st.sidebar.button(
-    "Ticker toevoegen",
-    use_container_width=True
-):
-    if new_ticker:
-        test_data = get_market_data(
-            new_ticker,
-            "5d",
-            "1d"
-        )
-
-        if test_data.empty:
-            st.sidebar.error(
-                "Ticker niet gevonden of geen data beschikbaar."
-            )
-        else:
-            add_watchlist_item(
-                st.session_state.user_id,
-                new_ticker
-            )
-            st.sidebar.success("Ticker toegevoegd.")
-            st.rerun()
-
-if not watchlist:
-    add_watchlist_item(
-        st.session_state.user_id,
-        "ASML.AS"
-    )
-    watchlist = ["ASML.AS"]
-
-selected_ticker = st.sidebar.selectbox(
-    "Geselecteerde asset",
-    watchlist
-)
-
-if st.sidebar.button(
-    "Geselecteerde ticker verwijderen",
-    use_container_width=True
-):
-    if len(watchlist) <= 1:
-        st.sidebar.warning(
-            "De watchlist moet minimaal één ticker bevatten."
-        )
-    else:
-        remove_watchlist_item(
-            st.session_state.user_id,
-            selected_ticker
-        )
-        st.rerun()
-
-st.sidebar.divider()
-
-if st.sidebar.button(
-    "🔐 Veilig uitloggen",
-    use_container_width=True
-):
-    st.session_state.user_id = None
-    st.rerun()
+watch_conn = db(); watch = [r["ticker"] for r in watch_conn.execute("SELECT ticker FROM watchlists WHERE user_id=? ORDER BY ticker", (user["id"],)).fetchall()]; watch_conn.close()
+if not watch:
+    watch = ["ASML.AS"]
+selected = st.sidebar.selectbox("Geselecteerde asset", watch)
 
 # ==================================================
-# 15. ACTUELE DATA EN ANALYSE
+# 10. ALGEMENE HEADER
 # ==================================================
 
-market_data = get_market_data(
-    selected_ticker,
-    "1y",
-    "1d"
-)
-
-market_news = get_market_news(selected_ticker)
-
-if market_data.empty:
-    st.error(
-        "Er is momenteel geen marktdata beschikbaar voor "
-        f"{selected_ticker}."
-    )
-    st.stop()
-
-indicator_data = calculate_indicators(market_data)
-current_price = safe_float(
-    indicator_data["Close"].iloc[-1]
-)
-
-analysis = generate_analysis(
-    market_data,
-    market_news
-)
-
-historical_statistics = (
-    calculate_historical_statistics(market_data)
-)
-
-# ==================================================
-# 16. AUTOMATISCHE STOP-LOSS EN TAKE-PROFIT
-# ==================================================
-
-positions = get_open_positions(
-    st.session_state.user_id,
-    current_account["id"]
-)
-
-for position in positions:
-    if position["ticker"] != selected_ticker:
-        continue
-
-    stop_loss = safe_float(
-        position["stop_loss"],
-        0
-    )
-
-    take_profit = safe_float(
-        position["take_profit"],
-        0
-    )
-
-    if (
-        stop_loss > 0
-        and current_price <= stop_loss
-    ):
-        close_position(
-            st.session_state.user_id,
-            current_account["id"],
-            position["id"],
-            current_price,
-            "STOP_LOSS"
-        )
-        st.warning(
-            f"De virtuele stop-loss voor "
-            f"{position['ticker']} is uitgevoerd."
-        )
-        st.rerun()
-
-    if (
-        take_profit > 0
-        and current_price >= take_profit
-    ):
-        close_position(
-            st.session_state.user_id,
-            current_account["id"],
-            position["id"],
-            current_price,
-            "TAKE_PROFIT"
-        )
-        st.success(
-            f"De virtuele take-profit voor "
-            f"{position['ticker']} is uitgevoerd."
-        )
-        st.rerun()
-
-# ==================================================
-# 17. PORTFOLIOBEREKENING
-# ==================================================
-
-positions = get_open_positions(
-    st.session_state.user_id,
-    current_account["id"]
-)
-
-invested_value = 0.0
-open_pnl = 0.0
-
-for position in positions:
-    position_data = get_market_data(
-        position["ticker"],
-        "5d",
-        "1d"
-    )
-
-    if position_data.empty:
-        position_price = position["entry_price"]
-    else:
-        position_price = safe_float(
-            position_data["Close"].iloc[-1],
-            position["entry_price"]
-        )
-
-    position_value = (
-        position_price * position["quantity"]
-    )
-
-    position_pnl = (
-        (position_price - position["entry_price"])
-        * position["quantity"]
-    )
-
-    invested_value += position_value
-    open_pnl += position_pnl
-
-account_value = (
-    current_account["cash_balance"]
-    + invested_value
-)
-
-# ==================================================
-# 18. HEADER
-# ==================================================
-
-st.title("🌐 GLOBAL TRADING INTELLIGENCE")
-
-st.caption(
-    f"Paper Trading & Market Intelligence | "
-    f"Laatste update: "
-    f"{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}"
-)
-
-metric_1, metric_2, metric_3, metric_4 = st.columns(4)
-
-metric_1.metric(
-    "Virtueel cash",
-    format_money(current_account["cash_balance"])
-)
-
-metric_2.metric(
-    "Belegde waarde",
-    format_money(invested_value)
-)
-
-metric_3.metric(
-    "Open P&L",
-    format_money(open_pnl)
-)
-
-metric_4.metric(
-    "Totale accountwaarde",
-    format_money(account_value)
-)
-
+st.title(f"🌐 {APP_NAME}")
+m1,m2,m3,m4,m5 = st.columns(5)
+m1.metric("Virtueel cash", f"€ {portfolio['cash']:,.2f}")
+m2.metric("Belegde waarde", f"€ {portfolio['invested']:,.2f}")
+m3.metric("Open P&L", f"€ {portfolio['open_pnl']:,.2f}")
+m4.metric("Accountwaarde", f"€ {portfolio['equity']:,.2f}")
+m5.metric("Open posities", len(portfolio["positions"]))
+st.caption(DISCLAIMER)
 st.divider()
 
 # ==================================================
-# 19. DASHBOARD
+# 11. HOME
 # ==================================================
 
-if page == "🏠 Dashboard":
-    st.header(
-        f"Goedemiddag, {current_user['first_name']} 👋"
-    )
+if page == "🏠 Home":
+    st.header("Marktactiecentrum")
+    scan_df = load_scan_results()
+    if scan_df.empty:
+        st.info("Er zijn nog geen scannerresultaten. Start hieronder de eerste scan.")
+        scan_limit = st.selectbox("Eerste scan", [25,50,100,len(ALL_TICKERS)], format_func=lambda n: f"{n} tickers")
+        if st.button("Scanner starten", type="primary"):
+            bar = st.progress(0, text="Scanner voorbereiden")
+            scan_market_universe(scan_limit, bar)
+            st.rerun()
+    else:
+        scan_errors = int((scan_df["scan_error"].fillna("") != "").sum())
+        h1,h2,h3 = st.columns(3)
+        h1.metric("Gescande assets", len(scan_df))
+        h2.metric("Scanproblemen", scan_errors)
+        h3.metric("Laatste scan", str(last_scan_time())[:19] if last_scan_time() else "Nog niet")
 
-    left_column, right_column = st.columns(
-        [1.7, 1]
-    )
+        buy = scan_df[(scan_df["total_score"] >= 68) & (scan_df["technical_score"] >= 65) & (scan_df["risk_reward"] >= 1.5) & (scan_df["data_quality"] >= 75)].sort_values(["total_score","confidence","risk_reward"], ascending=False).head(10)
+        watch_df = scan_df[(scan_df["total_score"] >= 55) & (scan_df["total_score"] < 68) & (scan_df["risk_reward"] >= 1.5)].sort_values("total_score", ascending=False).head(15)
 
-    with left_column:
-        st.subheader(
-            f"📊 {selected_ticker}"
-        )
+        st.subheader("🟢 Hoogste actuele paper-buy setups")
+        if buy.empty:
+            st.info("Geen setup voldoet momenteel aan alle ingestelde voorwaarden.")
+        for rank, (_, row) in enumerate(buy.iterrows(), 1):
+            units, risk_eur = position_size(portfolio["equity"], portfolio["cash"], row["entry_zone"], row["stop_loss"], account["risk_pct"], account["max_allocation_pct"])
+            with st.expander(f"#{rank} {row['ticker']} | {row['signal']} | {row['total_score']:.0f}/100"):
+                a,b,c,d = st.columns(4)
+                a.metric("Koers", f"{row['price']:.4f}", f"{row['daily_change']:.2f}%")
+                b.metric("Confidence", f"{row['confidence']:.0f}%")
+                c.metric("Risk/reward", f"{row['risk_reward']:.2f}")
+                d.metric("Paper-aantal", units)
+                st.write(f"**Entry:** {row['entry_zone']:.4f} | **Stop:** {row['stop_loss']:.4f} | **Target 1:** {row['target_1']:.4f} | **Target 2:** {row['target_2']:.4f}")
+                st.caption(f"Maximaal paper-risico: € {risk_eur:.2f}. Nieuwsbevestiging wordt pas opgehaald bij detailanalyse.")
+                if st.button("Open paper-order ticket", key=f"ticket_{row['ticker']}"):
+                    st.session_state.ticket_ticker = row["ticker"]
+                    st.session_state.ticket_analysis = row.to_dict()
+                    st.success("Orderticket voorbereid. Open het menu Paper Trading.")
 
-        price_1, price_2, price_3 = st.columns(3)
+        st.subheader("🔴 Verkopen, verlagen of winst beschermen")
+        if not portfolio["positions"]:
+            st.info("Je hebt geen open paperposities.")
+        for pos in portfolio["positions"]:
+            a = pos["analysis"]
+            urgency = "GEEN ACTIE"
+            reasons = []
+            if pos["current_price"] <= (pos["stop_loss"] or 0): urgency = "DIRECT SLUITEN"; reasons.append("Stop-loss is geraakt")
+            elif pos["current_price"] >= (pos["take_profit"] or 1e99): urgency = "WINST BESCHERMEN"; reasons.append("Take-profit is bereikt")
+            elif a.get("total_score", 50) < 35: urgency = "GEDEELTELIJK VERLAGEN"; reasons.append("Marktscore is onder 35")
+            elif a.get("ema9", 0) < a.get("ema21", 0): urgency = "STOP-LOSS AANSCHERPEN"; reasons.append("EMA9 ligt onder EMA21")
+            pnl_pct = (pos["current_price"] / pos["entry_price"] - 1) * 100 if pos["entry_price"] else 0
+            with st.expander(f"{pos['ticker']} | {urgency} | P&L {pnl_pct:.2f}%"):
+                st.write("; ".join(reasons) if reasons else "Geen directe verkoopvoorwaarde geactiveerd.")
+                st.write(f"Instap {pos['entry_price']:.4f} | Huidig {pos['current_price']:.4f} | Stop {pos['stop_loss']:.4f} | Target {pos['take_profit']:.4f}")
 
-        price_1.metric(
-            "Laatste koers",
-            f"{current_price:,.4f}"
-        )
-
-        price_2.metric(
-            "Technische score",
-            f"{analysis['score']:.0f}/100"
-        )
-
-        price_3.metric(
-            "Nieuwsstatus",
-            analysis["news_label"]
-        )
-
-        chart_columns = [
-            "Close",
-            "EMA9",
-            "EMA21",
-            "SMA50"
-        ]
-
-        available_columns = [
-            column
-            for column in chart_columns
-            if column in indicator_data.columns
-        ]
-
-        st.line_chart(
-            indicator_data[
-                available_columns
-            ].tail(180),
-            use_container_width=True
-        )
-
-    with right_column:
-        st.subheader("🤖 Marktanalyse")
-
-        if analysis["score"] >= 60:
-            st.success(analysis["signal"])
-        elif analysis["score"] <= 40:
-            st.error(analysis["signal"])
+        st.subheader("🟠 Dit nu bewaken")
+        if watch_df.empty:
+            st.info("Geen bijna-signalen beschikbaar.")
         else:
-            st.warning(analysis["signal"])
-
-        st.metric(
-            "Analysezekerheid",
-            f"{analysis['confidence']:.0f}%"
-        )
-
-        st.write(analysis["summary"])
-
-        st.caption(
-            "Dit is een educatieve, regelgebaseerde analyse."
-        )
-
-    st.subheader("Argumenten vóór")
-
-    if analysis["reasons_for"]:
-        for reason in analysis["reasons_for"]:
-            st.success(reason)
-    else:
-        st.info("Geen sterke positieve bevestigingen.")
-
-    st.subheader("Risico's en tegenargumenten")
-
-    if analysis["reasons_against"]:
-        for reason in analysis["reasons_against"]:
-            st.error(reason)
-    else:
-        st.info("Geen sterke technische tegenargumenten gevonden.")
-
-    st.subheader("Historische kenmerken")
-
-    if historical_statistics:
-        h1, h2, h3, h4 = st.columns(4)
-
-        h1.metric(
-            "Rendement 30 dagen",
-            format_percentage(
-                historical_statistics["return_30d"]
-            )
-        )
-
-        h2.metric(
-            "Rendement 90 dagen",
-            format_percentage(
-                historical_statistics["return_90d"]
-            )
-        )
-
-        h3.metric(
-            "Maximale drawdown",
-            format_percentage(
-                historical_statistics["max_drawdown"]
-            )
-        )
-
-        h4.metric(
-            "Positieve dagen",
-            format_percentage(
-                historical_statistics["positive_days"]
-            )
-        )
+            st.dataframe(watch_df[["ticker","category","price","total_score","rsi","volume_ratio","risk_reward","signal"]], use_container_width=True, hide_index=True)
 
 # ==================================================
-# 20. ASSETANALYSE
+# 12. MARKET SCANNER
 # ==================================================
+elif page == "🔎 Market Scanner":
+    st.header("🔎 Markt Scanner")
+    c1,c2,c3 = st.columns(3)
+    category = c1.selectbox("Categorie", ["Alle"] + list(MARKET_UNIVERSE.keys()))
+    query = c2.text_input("Zoek ticker").upper().strip()
+    signal_filter = c3.selectbox("Signaal", ["Alle","STERKE PAPER BUY SETUP","PAPER BUY SETUP","WACHT OP BEVESTIGING","HOLD / BEWAKEN","PAPER SELL / REDUCE","ONVOLDOENDE DATA"])
+    scan_count = st.selectbox("Aantal tickers scannen", [25,50,100,len(ALL_TICKERS)], index=1)
+    if st.button("Scan nu uitvoeren", type="primary"):
+        bar = st.progress(0, text="Scanner gestart")
+        scanned = scan_market_universe(scan_count, bar)
+        st.success(f"{scanned} tickers gescand.")
+    frame = load_scan_results()
+    if not frame.empty:
+        if category != "Alle": frame = frame[frame["category"] == category]
+        if query: frame = frame[frame["ticker"].str.contains(query, na=False)]
+        if signal_filter != "Alle": frame = frame[frame["signal"] == signal_filter]
+        st.dataframe(frame.sort_values("total_score", ascending=False), use_container_width=True, hide_index=True)
 
+# ==================================================
+# 13. ASSETANALYSE EN NIEUWS
+# ==================================================
 elif page == "📊 Assetanalyse":
-    st.header(
-        f"📊 Uitgebreide analyse van {selected_ticker}"
-    )
-
-    tab_technical, tab_historical, tab_scenarios = st.tabs(
-        [
-            "Technische analyse",
-            "Historische analyse",
-            "Scenario's"
-        ]
-    )
-
-    with tab_technical:
-        a1, a2, a3, a4 = st.columns(4)
-
-        a1.metric(
-            "RSI",
-            f"{analysis.get('rsi', 50):.1f}"
-        )
-
-        a2.metric(
-            "EMA9",
-            f"{analysis.get('ema9', current_price):.4f}"
-        )
-
-        a3.metric(
-            "EMA21",
-            f"{analysis.get('ema21', current_price):.4f}"
-        )
-
-        a4.metric(
-            "ATR",
-            f"{analysis.get('atr', 0):.4f}"
-        )
-
-        st.line_chart(
-            indicator_data[
-                [
-                    "Close",
-                    "EMA9",
-                    "EMA21",
-                    "SMA20",
-                    "SMA50"
-                ]
-            ].dropna().tail(250),
-            use_container_width=True
-        )
-
-    with tab_historical:
-        if historical_statistics:
-            statistics_frame = pd.DataFrame(
-                {
-                    "Kenmerk": [
-                        "Aantal koersdagen",
-                        "Rendement 7 dagen",
-                        "Rendement 30 dagen",
-                        "Rendement 90 dagen",
-                        "Totaal rendement",
-                        "Jaarvolatiliteit",
-                        "Maximale drawdown",
-                        "Positieve dagen",
-                        "Hoogste koers",
-                        "Laagste koers"
-                    ],
-                    "Waarde": [
-                        historical_statistics["days"],
-                        format_percentage(
-                            historical_statistics["return_7d"]
-                        ),
-                        format_percentage(
-                            historical_statistics["return_30d"]
-                        ),
-                        format_percentage(
-                            historical_statistics["return_90d"]
-                        ),
-                        format_percentage(
-                            historical_statistics["total_return"]
-                        ),
-                        format_percentage(
-                            historical_statistics["annual_volatility"]
-                        ),
-                        format_percentage(
-                            historical_statistics["max_drawdown"]
-                        ),
-                        format_percentage(
-                            historical_statistics["positive_days"]
-                        ),
-                        f"{historical_statistics['highest_price']:.4f}",
-                        f"{historical_statistics['lowest_price']:.4f}"
-                    ]
-                }
-            )
-
-            st.dataframe(
-                statistics_frame,
-                use_container_width=True,
-                hide_index=True
-            )
-        else:
-            st.info(
-                "Onvoldoende historische data beschikbaar."
-            )
-
-    with tab_scenarios:
-        st.success(
-            f"Bullish scenario: een bevestigde beweging boven "
-            f"{analysis['target_1']:.4f} met voldoende volume "
-            f"kan het positieve scenario ondersteunen."
-        )
-
-        st.warning(
-            f"Neutraal scenario: zolang de koers tussen "
-            f"{analysis['stop_loss']:.4f} en "
-            f"{analysis['target_1']:.4f} beweegt, "
-            f"is er geen duidelijke doorbraak."
-        )
-
-        st.error(
-            f"Bearish scenario: een daling onder "
-            f"{analysis['stop_loss']:.4f} maakt het huidige "
-            f"positieve scenario ongeldig."
-        )
-
-# ==================================================
-# 21. NIEUWSPAGINA
-# ==================================================
+    st.header(f"📊 Uitgebreide analyse: {selected}")
+    analysis = analyze_ticker(selected, TICKER_CATEGORY.get(selected, "Watchlist"), include_news=True)
+    if analysis.get("scan_error"):
+        st.error(analysis["scan_error"])
+    else:
+        a,b,c,d = st.columns(4)
+        a.metric("Actie", analysis["signal"])
+        b.metric("Totaalscore", f"{analysis['total_score']:.0f}/100")
+        c.metric("Confidence", f"{analysis['confidence']:.0f}%")
+        d.metric("Datakwaliteit", f"{analysis['data_quality']:.0f}%")
+        st.subheader("Duidelijk paper-tradingplan")
+        st.write(f"**Entryzone:** {analysis['entry_zone']:.4f}")
+        st.write(f"**Stop-loss:** {analysis['stop_loss']:.4f}")
+        st.write(f"**Target 1:** {analysis['target_1']:.4f}")
+        st.write(f"**Target 2:** {analysis['target_2']:.4f}")
+        st.write(f"**Risk/reward:** {analysis['risk_reward']:.2f}")
+        st.success("Positief: " + "; ".join(analysis["reasons_for"]))
+        st.error("Risico's: " + ("; ".join(analysis["reasons_against"]) or "Geen sterke technische tegenargumenten"))
+        frame = indicators(ticker_history(selected))
+        st.line_chart(frame[["Close","EMA9","EMA21","SMA50"]].dropna().tail(180), use_container_width=True)
 
 elif page == "📰 Nieuws":
-    st.header(
-        f"📰 Nieuws Intelligence voor {selected_ticker}"
-    )
-
-    n1, n2 = st.columns(2)
-
-    n1.metric(
-        "Nieuwsscore",
-        f"{analysis['news_score']:.0f}/100"
-    )
-
-    n2.metric(
-        "Sentiment",
-        analysis["news_label"]
-    )
-
-    if analysis.get("scored_news"):
-        for article in analysis["scored_news"]:
-            with st.container(border=True):
-                st.subheader(article["title"])
-
-                st.caption(
-                    f"Bron: {article['publisher']} | "
-                    f"Sentimentpunten: "
-                    f"{article['sentiment_points']}"
-                )
-
-                if article.get("summary"):
-                    st.write(article["summary"])
-
-                if article.get("link"):
-                    st.link_button(
-                        "Open origineel artikel",
-                        article["link"]
-                    )
-    else:
-        st.info(
-            "Geen gecontroleerd nieuws beschikbaar voor deze asset."
-        )
+    st.header(f"📰 Nieuws: {selected}")
+    news = ticker_news(selected)
+    score = news_score(news)
+    st.metric("Nieuws-score", f"{score:.0f}/100")
+    if not news:
+        st.info("Geen gecontroleerd recent nieuws beschikbaar.")
+    for item in news:
+        with st.container(border=True):
+            st.subheader(item["title"])
+            st.caption(f"{item['publisher']} | {item['published']}")
+            if item["summary"]: st.write(item["summary"])
+            if item["url"]: st.link_button("Open origineel", item["url"])
 
 # ==================================================
-# 22. PAPER TRADING
+# 14. PAPER TRADING EN POSITIES
 # ==================================================
-
 elif page == "🎮 Paper Trading":
-    st.header("🎮 Paper Trading Order Ticket")
-
-    st.info(
-        "Deze order gebruikt uitsluitend fictief geld. "
-        "Er wordt geen echte brokerorder geplaatst."
-    )
-
-    risk_percentage = st.slider(
-        "Maximaal risico per trade",
-        min_value=0.1,
-        max_value=5.0,
-        value=float(current_account["risk_percentage"]),
-        step=0.1,
-        format="%.1f%%"
-    )
-
-    entry_price = st.number_input(
-        "Virtuele instapprijs",
-        min_value=0.0001,
-        value=float(current_price),
-        format="%.4f"
-    )
-
-    stop_loss = st.number_input(
-        "Stop-loss",
-        min_value=0.0001,
-        value=float(analysis["stop_loss"]),
-        format="%.4f"
-    )
-
-    take_profit = st.number_input(
-        "Take-profit",
-        min_value=0.0001,
-        value=float(analysis["target_1"]),
-        format="%.4f"
-    )
-
-    max_risk_euro = (
-        account_value * risk_percentage / 100
-    )
-
-    risk_per_unit = abs(
-        entry_price - stop_loss
-    )
-
-    units_by_risk = (
-        math.floor(
-            max_risk_euro / risk_per_unit
-        )
-        if risk_per_unit > 0
-        else 0
-    )
-
-    units_by_cash = (
-        math.floor(
-            current_account["cash_balance"]
-            / entry_price
-        )
-        if entry_price > 0
-        else 0
-    )
-
-    max_allocation_value = account_value * 0.25
-
-    units_by_allocation = (
-        math.floor(
-            max_allocation_value / entry_price
-        )
-        if entry_price > 0
-        else 0
-    )
-
-    recommended_units = max(
-        0,
-        min(
-            units_by_risk,
-            units_by_cash,
-            units_by_allocation
-        )
-    )
-
-    target_distance = abs(
-        take_profit - entry_price
-    )
-
-    risk_reward = (
-        target_distance / risk_per_unit
-        if risk_per_unit > 0
-        else 0
-    )
-
-    r1, r2, r3, r4 = st.columns(4)
-
-    r1.metric(
-        "Maximaal risico",
-        format_money(max_risk_euro)
-    )
-
-    r2.metric(
-        "Risico per stuk",
-        format_money(risk_per_unit)
-    )
-
-    r3.metric(
-        "Aanbevolen aantal",
-        recommended_units
-    )
-
-    r4.metric(
-        "Risk/reward",
-        f"{risk_reward:.2f}"
-    )
-
-    default_quantity = max(
-        1,
-        recommended_units
-    )
-
-    quantity = st.number_input(
-        "Aantal eenheden",
-        min_value=1,
-        value=default_quantity,
-        step=1
-    )
-
-    order_value = quantity * entry_price
-
-    actual_risk = quantity * risk_per_unit
-
-    st.write(
-        f"Virtuele orderwaarde: "
-        f"**{format_money(order_value)}**"
-    )
-
-    st.write(
-        f"Risico wanneer de stop-loss wordt geraakt: "
-        f"**{format_money(actual_risk)}**"
-    )
-
-    strategy = st.selectbox(
-        "Strategie",
-        [
-            "Technische analyse",
-            "EMA crossover",
-            "Support bounce",
-            "Resistance breakout",
-            "Nieuwsbevestiging",
-            "Eigen strategie"
-        ]
-    )
-
-    validation_errors = []
-
-    if stop_loss >= entry_price:
-        validation_errors.append(
-            "Voor een longpositie moet de stop-loss "
-            "onder de instapprijs liggen."
-        )
-
-    if take_profit <= entry_price:
-        validation_errors.append(
-            "Voor een longpositie moet de take-profit "
-            "boven de instapprijs liggen."
-        )
-
-    if order_value > current_account["cash_balance"]:
-        validation_errors.append(
-            "Onvoldoende virtueel saldo."
-        )
-
-    if actual_risk > max_risk_euro:
-        validation_errors.append(
-            "De order overschrijdt het ingestelde maximale risico."
-        )
-
-    if risk_reward < 1.5:
-        validation_errors.append(
-            "De risk/reward-verhouding is lager dan 1,5."
-        )
-
-    if analysis["score"] < 60:
-        st.warning(
-            "De analyse geeft momenteel geen overtuigend "
-            "bullish paper-tradingsignaal."
-        )
-
-    for error in validation_errors:
-        st.error(error)
-
-    if st.button(
-        "🟢 Virtuele kooporder plaatsen",
-        use_container_width=True,
-        type="primary",
-        disabled=bool(validation_errors)
-    ):
-        success, message = open_position(
-            st.session_state.user_id,
-            current_account["id"],
-            selected_ticker,
-            quantity,
-            entry_price,
-            stop_loss,
-            take_profit,
-            strategy
-        )
-
-        if success:
-            st.success(message)
-            st.rerun()
-        else:
-            st.error(message)
-
-# ==================================================
-# 23. OPEN POSITIES
-# ==================================================
+    ticker = st.session_state.get("ticket_ticker", selected)
+    analysis = st.session_state.get("ticket_analysis") or analyze_ticker(ticker, TICKER_CATEGORY.get(ticker, "Watchlist"), include_news=True)
+    st.header(f"🎮 Paper-order ticket: {ticker}")
+    entry = st.number_input("Instapprijs", min_value=0.0001, value=float(analysis.get("entry_zone", analysis.get("price", 1))), format="%.4f")
+    stop = st.number_input("Stop-loss", min_value=0.0001, value=float(analysis.get("stop_loss", entry * .97)), format="%.4f")
+    target = st.number_input("Take-profit", min_value=0.0001, value=float(analysis.get("target_1", entry * 1.05)), format="%.4f")
+    units, risk_eur = position_size(portfolio["equity"], portfolio["cash"], entry, stop, account["risk_pct"], account["max_allocation_pct"])
+    qty = st.number_input("Aantal", min_value=1, value=max(1, units), step=1)
+    rr = (target-entry)/max(entry-stop,1e-9)
+    st.write(f"Aanbevolen aantal: **{units}** | Maximaal risico: **€ {risk_eur:.2f}** | Risk/reward: **{rr:.2f}**")
+    errors = []
+    if stop >= entry: errors.append("Stop-loss moet onder de instapprijs liggen.")
+    if target <= entry: errors.append("Take-profit moet boven de instapprijs liggen.")
+    if qty * entry > portfolio["cash"]: errors.append("Onvoldoende virtueel cashsaldo.")
+    if rr < 1.5: errors.append("Risk/reward is lager dan 1,5.")
+    for e in errors: st.error(e)
+    if st.button("Virtuele kooporder bevestigen", type="primary", disabled=bool(errors)):
+        ok,msg = create_position(user,account,ticker,qty,entry,stop,target,"Home/Scanner",analysis)
+        st.success(msg) if ok else st.error(msg)
+        if ok: st.rerun()
 
 elif page == "💼 Open Posities":
     st.header("💼 Open paperposities")
-
-    if not positions:
-        st.info("Je hebt momenteel geen open posities.")
-
-    for position in positions:
-        position_data = get_market_data(
-            position["ticker"],
-            "5d",
-            "1d"
-        )
-
-        if position_data.empty:
-            position_price = position["entry_price"]
-            data_status = "Geen actuele data"
-        else:
-            position_price = safe_float(
-                position_data["Close"].iloc[-1],
-                position["entry_price"]
-            )
-            data_status = "Laatst beschikbare koers"
-
-        position_value = (
-            position_price * position["quantity"]
-        )
-
-        position_pnl = (
-            (position_price - position["entry_price"])
-            * position["quantity"]
-        )
-
-        position_pnl_percentage = (
-            (
-                position_price
-                / position["entry_price"]
-            ) - 1
-        ) * 100
-
+    if not portfolio["positions"]: st.info("Geen open posities.")
+    for pos in portfolio["positions"]:
+        pnl_pct = (pos["current_price"]/pos["entry_price"]-1)*100 if pos["entry_price"] else 0
         with st.container(border=True):
-            p1, p2, p3, p4 = st.columns(4)
-
-            p1.metric(
-                position["ticker"],
-                f"{position['quantity']} eenheden"
-            )
-
-            p2.metric(
-                "Instapprijs",
-                f"{position['entry_price']:.4f}"
-            )
-
-            p3.metric(
-                "Huidige prijs",
-                f"{position_price:.4f}"
-            )
-
-            p4.metric(
-                "Open P&L",
-                format_money(position_pnl),
-                format_percentage(
-                    position_pnl_percentage
-                )
-            )
-
-            st.caption(
-                f"{data_status} | "
-                f"Stop-loss: {position['stop_loss']:.4f} | "
-                f"Take-profit: {position['take_profit']:.4f} | "
-                f"Strategie: {position['strategy']}"
-            )
-
-            if st.button(
-                f"🔴 Sluit {position['ticker']}",
-                key=f"close_position_{position['id']}"
-            ):
-                success, message = close_position(
-                    st.session_state.user_id,
-                    current_account["id"],
-                    position["id"],
-                    position_price,
-                    "MANUAL_CLOSE"
-                )
-
-                if success:
-                    st.success(message)
-                    st.rerun()
-                else:
-                    st.error(message)
+            st.subheader(f"{pos['ticker']} | {pos['quantity']:.4f} eenheden")
+            st.write(f"Instap {pos['entry_price']:.4f} | Huidig {pos['current_price']:.4f} | P&L € {pos['open_pnl']:.2f} ({pnl_pct:.2f}%)")
+            c1,c2,c3 = st.columns(3)
+            if c1.button("Sluit 25%", key=f"c25_{pos['id']}"):
+                close_position_fraction(user["id"],account["id"],pos["id"],.25,pos["current_price"],"PARTIAL_25"); st.rerun()
+            if c2.button("Sluit 50%", key=f"c50_{pos['id']}"):
+                close_position_fraction(user["id"],account["id"],pos["id"],.50,pos["current_price"],"PARTIAL_50"); st.rerun()
+            if c3.button("Sluit volledig", key=f"c100_{pos['id']}"):
+                close_position_fraction(user["id"],account["id"],pos["id"],1.0,pos["current_price"],"MANUAL_CLOSE"); st.rerun()
 
 # ==================================================
-# 24. TRADING JOURNAL
+# 15. JOURNAL, PERFORMANCE, WATCHLIST EN INSTELLINGEN
 # ==================================================
-
 elif page == "📓 Trading Journal":
     st.header("📓 Trading Journal")
-
-    trade_history = get_trade_history(
-        st.session_state.user_id,
-        current_account["id"]
-    )
-
-    if not trade_history:
-        st.info(
-            "Je hebt nog geen gesloten paper trades."
-        )
+    trades = trade_history(user["id"], account["id"])
+    if not trades: st.info("Nog geen gesloten papertrades.")
     else:
-        journal_data = pd.DataFrame(trade_history)
+        frame = pd.DataFrame(trades)
+        st.dataframe(frame, use_container_width=True, hide_index=True)
+        st.download_button("Download CSV", frame.to_csv(index=False).encode(), "trading_journal.csv", "text/csv")
 
-        display_columns = [
-            "closed_at",
-            "ticker",
-            "quantity",
-            "entry_price",
-            "exit_price",
-            "pnl",
-            "pnl_percentage",
-            "strategy",
-            "close_reason"
-        ]
-
-        available_display_columns = [
-            column
-            for column in display_columns
-            if column in journal_data.columns
-        ]
-
-        st.dataframe(
-            journal_data[available_display_columns],
-            use_container_width=True,
-            hide_index=True
-        )
-
-        csv_data = journal_data.to_csv(
-            index=False
-        ).encode("utf-8")
-
-        st.download_button(
-            "Download journal als CSV",
-            data=csv_data,
-            file_name="trading_journal.csv",
-            mime="text/csv"
-        )
-
-# ==================================================
-# 25. PRESTATIES
-# ==================================================
-
-elif page == "📈 Prestaties":
-    st.header("📈 Paper Trading Prestaties")
-
-    trade_history = get_trade_history(
-        st.session_state.user_id,
-        current_account["id"]
-    )
-
-    if not trade_history:
-        st.info(
-            "Er zijn nog onvoldoende gesloten trades "
-            "voor een prestatieanalyse."
-        )
+elif page == "📈 Performance":
+    st.header("📈 Performance")
+    trades = trade_history(user["id"], account["id"])
+    if not trades: st.info("Nog onvoldoende trades.")
     else:
-        pnl_values = [
-            safe_float(trade["pnl"])
-            for trade in trade_history
-        ]
-
-        winners = [
-            value
-            for value in pnl_values
-            if value > 0
-        ]
-
-        losers = [
-            value
-            for value in pnl_values
-            if value < 0
-        ]
-
-        total_trades = len(pnl_values)
-
-        winrate = (
-            len(winners) / total_trades * 100
-            if total_trades > 0
-            else 0
-        )
-
-        total_pnl = sum(pnl_values)
-
-        gross_profit = sum(winners)
-
-        gross_loss = abs(sum(losers))
-
-        profit_factor = (
-            gross_profit / gross_loss
-            if gross_loss > 0
-            else gross_profit
-        )
-
-        average_win = (
-            np.mean(winners)
-            if winners
-            else 0
-        )
-
-        average_loss = (
-            np.mean(losers)
-            if losers
-            else 0
-        )
-
-        s1, s2, s3, s4 = st.columns(4)
-
-        s1.metric(
-            "Gesloten trades",
-            total_trades
-        )
-
-        s2.metric(
-            "Winrate",
-            format_percentage(winrate)
-        )
-
-        s3.metric(
-            "Profit factor",
-            f"{profit_factor:.2f}"
-        )
-
-        s4.metric(
-            "Totaal resultaat",
-            format_money(total_pnl)
-        )
-
-        s5, s6 = st.columns(2)
-
-        s5.metric(
-            "Gemiddelde winst",
-            format_money(average_win)
-        )
-
-        s6.metric(
-            "Gemiddeld verlies",
-            format_money(average_loss)
-        )
-
-        pnl_frame = pd.DataFrame(
-            {
-                "Trade": list(
-                    range(1, total_trades + 1)
-                ),
-                "P&L": list(reversed(pnl_values))
-            }
-        )
-
-        pnl_frame["Cumulatief P&L"] = (
-            pnl_frame["P&L"].cumsum()
-        )
-
-        st.subheader("Cumulatief resultaat")
-
-        st.line_chart(
-            pnl_frame.set_index("Trade")[
-                ["Cumulatief P&L"]
-            ]
-        )
-
-        if total_trades < 20:
-            st.warning(
-                "Er zijn minder dan 20 gesloten trades. "
-                "Persoonlijke patroonanalyse is nog onvoldoende betrouwbaar."
-            )
-        else:
-            st.success(
-                "Er zijn voldoende trades voor een eerste "
-                "voorzichtige patroonanalyse."
-            )
-
-# ==================================================
-# 26. WATCHLISTPAGINA
-# ==================================================
+        pnl = np.array([t["pnl"] for t in trades], dtype=float)
+        wins = pnl[pnl>0]; losses = pnl[pnl<0]
+        winrate = len(wins)/len(pnl)*100
+        pf = wins.sum()/abs(losses.sum()) if len(losses) else float(wins.sum())
+        c1,c2,c3,c4 = st.columns(4)
+        c1.metric("Trades",len(pnl)); c2.metric("Winrate",f"{winrate:.1f}%"); c3.metric("Profit factor",f"{pf:.2f}"); c4.metric("Totaal P&L",f"€ {pnl.sum():.2f}")
+        equity = pd.DataFrame({"Cumulatief P&L": np.flip(pnl).cumsum()})
+        st.line_chart(equity)
+        if len(pnl)<20: st.warning("Minimaal 20 gesloten papertrades nodig voor persoonlijke patroonanalyse.")
 
 elif page == "⭐ Watchlist":
-    st.header("⭐ Mijn Watchlist")
+    st.header("⭐ Watchlist")
+    new = st.text_input("Ticker toevoegen").upper().strip()
+    if st.button("Toevoegen") and new:
+        if ticker_history(new,"5d","1d").empty: st.error("Ticker niet gevonden.")
+        else:
+            conn=db(); conn.execute("INSERT OR IGNORE INTO watchlists(user_id,ticker,created_at) VALUES(?,?,?)",(user["id"],new,datetime.now(timezone.utc).isoformat())); conn.commit(); conn.close(); st.rerun()
+    st.dataframe(pd.DataFrame({"Ticker":watch}), use_container_width=True, hide_index=True)
 
-    watchlist_rows = []
-
-    for ticker in watchlist:
-        ticker_data = get_market_data(
-            ticker,
-            "1mo",
-            "1d"
-        )
-
-        if ticker_data.empty:
-            watchlist_rows.append(
-                {
-                    "Ticker": ticker,
-                    "Koers": "Niet beschikbaar",
-                    "30 dagen": "Niet beschikbaar"
-                }
-            )
-            continue
-
-        ticker_price = safe_float(
-            ticker_data["Close"].iloc[-1]
-        )
-
-        monthly_return = (
-            (
-                ticker_data["Close"].iloc[-1]
-                / ticker_data["Close"].iloc[0]
-            ) - 1
-        ) * 100
-
-        watchlist_rows.append(
-            {
-                "Ticker": ticker,
-                "Koers": f"{ticker_price:.4f}",
-                "30 dagen": format_percentage(
-                    monthly_return
-                )
-            }
-        )
-
-    st.dataframe(
-        pd.DataFrame(watchlist_rows),
-        use_container_width=True,
-        hide_index=True
-    )
+elif page == "⚙️ Instellingen":
+    st.header("⚙️ Risico-instellingen")
+    risk = st.slider("Risico per trade (%)",.1,5.0,float(account["risk_pct"]),.1)
+    allocation = st.slider("Maximale allocatie per positie (%)",5.0,50.0,float(account["max_allocation_pct"]),1.0)
+    max_pos = st.slider("Maximaal aantal open posities",1,20,int(account["max_positions"]))
+    if st.button("Instellingen opslaan"):
+        conn=db(); conn.execute("UPDATE paper_accounts SET risk_pct=?,max_allocation_pct=?,max_positions=? WHERE id=?",(risk,allocation,max_pos,account["id"])); conn.commit(); conn.close(); st.success("Opgeslagen.")
+    st.warning("SQLite is geschikt voor testen. Streamlit Community Cloud garandeert geen permanente lokale database na een herbouw. Gebruik Supabase voor productie.")
 
 # ==================================================
-# 27. TRADING ACADEMY
+# 16. ADMIN
 # ==================================================
-
-elif page == "🎓 Trading Academy":
-    st.header("🎓 Trading Academy")
-
-    with st.expander(
-        "1. Wat is een candlestick?"
-    ):
-        st.write(
-            "Een candlestick toont de openingsprijs, "
-            "sluitingsprijs, hoogste prijs en laagste prijs "
-            "binnen een bepaalde periode."
-        )
-
-    with st.expander(
-        "2. Wat is een limitorder?"
-    ):
-        st.write(
-            "Een limitorder wordt alleen uitgevoerd tegen "
-            "de ingestelde prijs of een gunstigere prijs."
-        )
-
-    with st.expander(
-        "3. Wat is een stop-loss?"
-    ):
-        st.write(
-            "Een stop-loss is een vooraf ingesteld niveau "
-            "waarop een positie wordt gesloten wanneer de "
-            "koers tegen de verwachting in beweegt."
-        )
-
-    with st.expander(
-        "4. Hoe werkt de 1%-regel?"
-    ):
-        st.write(
-            "Bij de 1%-regel mag het verlies wanneer de "
-            "stop-loss wordt geraakt maximaal 1% van de "
-            "totale accountwaarde bedragen."
-        )
-
-        st.code(
-            "Maximaal risico = accountwaarde × 1%\n"
-            "Aantal = maximaal risico / risico per stuk"
-        )
-
-    with st.expander(
-        "5. Wat is risk/reward?"
-    ):
-        st.write(
-            "Risk/reward vergelijkt het mogelijke winstdoel "
-            "met het mogelijke verlies tot de stop-loss. "
-            "Een verhouding van 2 betekent dat het potentiële "
-            "winstdoel twee keer zo groot is als het risico."
-        )
-
-# ==================================================
-# 28. MIJN ACCOUNT
-# ==================================================
-
-elif page == "👤 Mijn Account":
-    st.header("👤 Mijn Account")
-
-    profile_1, profile_2 = st.columns(2)
-
-    with profile_1:
-        st.write(
-            f"**Naam:** "
-            f"{current_user['first_name']} "
-            f"{current_user['last_name']}"
-        )
-
-        st.write(
-            f"**E-mailadres:** {current_user['email']}"
-        )
-
-        st.write(
-            f"**Land:** {current_user['country']}"
-        )
-
-        st.write(
-            f"**Ervaring:** {current_user['experience']}"
-        )
-
-    with profile_2:
-        st.write(
-            f"**Tradingstijl:** "
-            f"{current_user['trading_style']}"
-        )
-
-        st.write(
-            f"**Account aangemaakt:** "
-            f"{current_user['created_at']}"
-        )
-
-        st.write(
-            f"**Virtueel startkapitaal:** "
-            f"{format_money(current_account['initial_balance'])}"
-        )
-
-        st.write(
-            f"**Gerealiseerde P&L:** "
-            f"{format_money(current_account['realized_pnl'])}"
-        )
-
-    st.warning(
-        "De huidige versie gebruikt SQLite. Op Streamlit "
-        "Community Cloud kan het databasebestand verdwijnen "
-        "wanneer de app opnieuw wordt opgebouwd. Gebruik voor "
-        "volledig permanente online accounts later Supabase."
-    )
-
-# ==================================================
-# 29. DISCLAIMER
-# ==================================================
+elif page == "🛡️ Beheer":
+    if user["role"] != "ADMIN" or not user["active"]:
+        st.error("Geen toegang."); st.stop()
+    st.header("🛡️ Beheerdersdashboard")
+    conn = db()
+    counts = {
+        "Gebruikers": conn.execute("SELECT COUNT(*) FROM users").fetchone()[0],
+        "Actieve gebruikers": conn.execute("SELECT COUNT(*) FROM users WHERE active=1").fetchone()[0],
+        "Open posities": conn.execute("SELECT COUNT(*) FROM positions WHERE status='OPEN'").fetchone()[0],
+        "Gesloten trades": conn.execute("SELECT COUNT(*) FROM trades").fetchone()[0],
+        "Scannerassets": conn.execute("SELECT COUNT(*) FROM scanner_results").fetchone()[0],
+    }
+    cols = st.columns(len(counts))
+    for col,(label,value) in zip(cols,counts.items()): col.metric(label,value)
+    users = pd.read_sql_query("SELECT id,first_name,last_name,email,role,active,created_at,last_login FROM users ORDER BY created_at DESC",conn)
+    st.subheader("Gebruikers")
+    st.dataframe(users,use_container_width=True,hide_index=True)
+    selected_user = st.selectbox("Gebruiker beheren", users["id"].tolist(), format_func=lambda uid: users.loc[users.id==uid,"email"].iloc[0]) if not users.empty else None
+    b1,b2 = st.columns(2)
+    if selected_user and b1.button("Activeren"):
+        conn.execute("UPDATE users SET active=1 WHERE id=?",(int(selected_user),)); conn.execute("INSERT INTO admin_logs(admin_user_id,action,details,created_at) VALUES(?,?,?,?)",(user["id"],"ACTIVATE_USER",str(selected_user),datetime.now(timezone.utc).isoformat())); conn.commit(); st.rerun()
+    if selected_user and b2.button("Blokkeren"):
+        if int(selected_user)==user["id"]: st.error("Je kunt je eigen adminaccount niet blokkeren.")
+        else:
+            conn.execute("UPDATE users SET active=0 WHERE id=?",(int(selected_user),)); conn.execute("INSERT INTO admin_logs(admin_user_id,action,details,created_at) VALUES(?,?,?,?)",(user["id"],"BLOCK_USER",str(selected_user),datetime.now(timezone.utc).isoformat())); conn.commit(); st.rerun()
+    st.subheader("Systeem")
+    st.write(f"Unieke tickers: {len(ALL_TICKERS)}")
+    st.write(f"Laatste scan: {last_scan_time() or 'Nog niet'}")
+    if st.button("Cache legen"):
+        st.cache_data.clear(); st.success("Cache geleegd.")
+    conn.close()
 
 st.divider()
-
-st.markdown(
-    """
-    <div class="disclaimer">
-    <strong>Belangrijke waarschuwing</strong><br>
-    Global Trading Intelligence is uitsluitend bedoeld voor educatie,
-    historische marktanalyse en paper trading. De technische analyses,
-    nieuwsscores en scenario's vormen geen persoonlijk financieel advies
-    en bieden geen garantie op rendement. Historische resultaten
-    voorspellen geen toekomstige resultaten. Er worden geen echte
-    brokerorders geplaatst.
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+st.caption(DISCLAIMER)
