@@ -1,2238 +1,2791 @@
-BOUW EEN VOLLEDIG PROFESSIONEEL ONLINE TRADINGPLATFORM
-
-Naam:
-GLOBAL TRADING INTELLIGENCE
-
-Versie:
-V1 Professional Paper Trading & AI Market Intelligence Platform
-
-TAAL
-De volledige gebruikersinterface moet standaard Nederlands zijn.
-Maak Engels als tweede taal beschikbaar.
-
-==================================================
-1. HOOFDDOEL
-==================================================
-
-Bouw een zeer uitgebreid persoonlijk tradingplatform waarmee een gebruiker:
-
-- Een eigen account kan aanmaken
-- Veilig kan inloggen en uitloggen
-- Een persoonlijk profiel heeft
-- Instellingen permanent kan opslaan
-- Een eigen virtueel handelsaccount heeft
-- Met nepgeld kan oefenen
-- Paper trades permanent kan bewaren
-- Na opnieuw inloggen exact verdergaat waar hij gebleven was
-- Wereldwijde financiële markten kan volgen
-- Aandelen kan analyseren
-- Crypto kan analyseren
-- Forex kan analyseren
-- ETF's, indexen en grondstoffen kan volgen
-- Watchlists kan maken
-- Live of vertraagde koersen kan bekijken
-- Financieel nieuws kan bekijken
-- Een economische kalender kan volgen
-- Technische analyses kan uitvoeren
-- AI-marktanalyses kan laten genereren
-- Bullish, neutrale en bearish scenario's kan bekijken
-- Risico kan laten berekenen
-- Virtuele stop-loss en take-profitorders kan instellen
-- Een uitgebreid tradingjournal kan bijhouden
-- Zijn persoonlijke prestaties kan analyseren
-- Kan leren van eerdere trades
-- AI kan laten analyseren welke fouten hij vaak maakt
-
-BELANGRIJK:
-
-Het programma moet NIET werken als een tijdelijke sessie.
-
-Alle belangrijke gebruikersgegevens moeten permanent in een database worden opgeslagen.
-
-Wanneer een gebruiker vandaag €10.000 virtueel startkapitaal heeft, 3 paper trades uitvoert, vervolgens uitlogt en een week later opnieuw inlogt, moeten:
-
-- zijn actuele saldo;
-- open posities;
-- eerdere trades;
-- orderhistorie;
-- watchlists;
-- instellingen;
-- journal;
-- alerts;
-- statistieken;
-- AI-analyses;
-
-nog gewoon aanwezig zijn.
-
-==================================================
-2. TECHNISCHE ARCHITECTUUR
-==================================================
-
-Gebruik een professionele moderne architectuur.
-
-Frontend:
-- Next.js
-- TypeScript
-- Tailwind CSS
-
-Backend:
-- Next.js server actions/API-routes of FastAPI
-
-Database:
-- Supabase PostgreSQL
-
-Authenticatie:
-- Supabase Auth
-
-Grafieken:
-- TradingView Lightweight Charts
-
-Hosting:
-- Vercel
-
-Database hosting:
-- Supabase
-
-Marktdata:
-Bouw een abstracte MarketDataProvider zodat later verschillende API-providers kunnen worden gekoppeld.
-
-Nieuws:
-Bouw een NewsProvider-architectuur zodat meerdere nieuws-API's tegelijk kunnen worden gebruikt.
-
-AI:
-Bouw een AIProvider-laag zodat een taalmodel-API kan worden aangesloten.
-
-Caching:
-Gebruik server-side caching waar noodzakelijk.
-
-Alle API-keys moeten in environment variables staan.
-
-NOOIT API-keys in frontendcode opslaan.
-
-==================================================
-3. ACCOUNT AANMAKEN
-==================================================
-
-Bouw een volledige registratiepagina.
-
-Nieuwe gebruiker vult in:
-
-- Voornaam
-- Achternaam
-- E-mailadres
-- Wachtwoord
-- Wachtwoord bevestigen
-- Land
-- Tijdzone
-- Voorkeurstaal
-- Standaardvaluta
-- Ervaringsniveau
-
-Ervaringsniveau:
-
-- Volledig beginner
-- Beginner
-- Gemiddeld
-- Ervaren
-
-Laat de gebruiker akkoord gaan met:
-
-[ ] Algemene voorwaarden
-[ ] Privacyvoorwaarden
-[ ] Ik begrijp dat dit platform geen financieel advies geeft
-[ ] Ik begrijp dat paper trading fictief geld gebruikt
-
-Voeg e-mailverificatie toe.
-
-==================================================
-4. INLOGSYSTEEM
-==================================================
-
-Bouw:
-
-- Inloggen
-- Uitloggen
-- Wachtwoord vergeten
-- Wachtwoord opnieuw instellen
-- E-mailadres verifiëren
-- Account verwijderen
-- Sessiebeheer
-
-Optioneel voorbereid op:
-
-- Google login
-- Microsoft login
-- Apple login
-- Passkeys
-- MFA / tweestapsverificatie
-
-==================================================
-5. PERSOONLIJK PROFIEL
-==================================================
-
-Iedere gebruiker krijgt een profielpagina.
-
-Toon:
-
-ACCOUNT
-- Naam
-- E-mailadres
-- Account aangemaakt op
-- Laatste login
-- Tijdzone
-- Valuta
-- Taal
-
-TRADINGPROFIEL
-- Ervaringsniveau
-- Voorkeursmarkt
-- Voorkeursstrategie
-- Risico per trade
-- Virtueel startkapitaal
-- Huidige virtuele accountwaarde
-
-VOORKEURSMARKTEN
-Gebruiker kan kiezen:
-
-- Aandelen
-- ETF
-- Crypto
-- Forex
-- Indexen
-- Grondstoffen
-
-TRADINGSTIJL
-
-- Scalping
-- Daytrading
-- Swingtrading
-- Position trading
-- Lange termijn analyse
-
-==================================================
-6. DATABASEGEHEUGEN
-==================================================
-
-DIT ONDERDEEL IS ZEER BELANGRIJK.
-
-Het programma moet permanent gebruikersinformatie onthouden.
-
-Gebruik PostgreSQL.
-
-Maak minimaal databases voor:
-
-USERS
-PROFILES
-USER_SETTINGS
-PAPER_ACCOUNTS
-PAPER_POSITIONS
-PAPER_ORDERS
-TRADE_HISTORY
-TRADE_JOURNAL
-WATCHLISTS
-WATCHLIST_ITEMS
-PRICE_ALERTS
-NEWS_ALERTS
-AI_ANALYSES
-AI_CONVERSATIONS
-AI_MESSAGES
-STRATEGIES
-STRATEGY_RESULTS
-USER_LEARNING_PROGRESS
-NOTIFICATIONS
-ECONOMIC_EVENTS
-PORTFOLIO_SNAPSHOTS
-
-Iedere tabel moet gekoppeld worden aan:
-
-user_id
-
-Hierdoor ziet elke gebruiker uitsluitend zijn eigen informatie.
-
-Gebruik Supabase Row Level Security.
-
-Een gebruiker mag NOOIT trades, saldo, profielgegevens, watchlists of journalinformatie van een andere gebruiker kunnen bekijken.
-
-==================================================
-7. PERSISTENT PAPER TRADING
-==================================================
-
-Nieuwe gebruikers ontvangen standaard:
-
-€10.000 virtueel handelskapitaal.
-
-Maar laat tijdens onboarding kiezen:
-
-€1.000
-€2.500
-€5.000
-€10.000
-€25.000
-€50.000
-€100.000
-
-Of:
-
-Eigen bedrag.
-
-Alle bedragen zijn fictief.
-
-==================================================
-8. PAPER TRADING ACCOUNT
-==================================================
-
-Toon bovenaan permanent:
-
-VIRTUEEL ACCOUNT
-
-Cash:
-€7.842
-
-Belegde waarde:
-€2.391
-
-Open P&L:
-+€143
-
-Totaal account:
-€10.233
-
-Vandaag:
-+€82 / +0,81%
-
-Totaal:
-+€233 / +2,33%
-
-Open posities:
-3
-
-Winrate:
-56%
-
-Alle informatie komt uit de database.
-
-==================================================
-9. ORDERSYSTEEM
-==================================================
-
-Ondersteun virtueel:
-
-MARKET BUY
-LIMIT BUY
-STOP BUY
-
-MARKET SELL
-LIMIT SELL
-STOP SELL
-
-STOP-LOSS
-TAKE-PROFIT
-
-TRAILING STOP
-
-GEDEELTELIJK VERKOPEN
-
-VOLLEDIG VERKOPEN
-
-Laat iedere paper order permanent opslaan.
-
-Per order:
-
-- ID
-- User ID
-- Asset
-- Ticker
-- Beurs
-- Ordertype
-- Buy/Sell
-- Aantal
-- Orderprijs
-- Uitvoeringsprijs
-- Datum
-- Tijd
-- Stop-loss
-- Take-profit
-- Commissie
-- Spread
-- Slippage
-- Status
-
-Statusmogelijkheden:
-
-PENDING
-EXECUTED
-CANCELLED
-REJECTED
-
-==================================================
-10. PERSISTENTE OPEN POSITIES
-==================================================
-
-Open posities mogen NIET verdwijnen na:
-
-- Browser sluiten
-- Pagina vernieuwen
-- Uitloggen
-- Computer opnieuw opstarten
-- Nieuwe telefoon gebruiken
-
-Wanneer dezelfde gebruiker opnieuw inlogt:
-
-haal open posities uit PostgreSQL.
-
-Bereken opnieuw:
-
-huidige marktwaarde
-ongerealiseerde winst/verlies
-percentage winst/verlies
-afstand tot stop-loss
-afstand tot take-profit.
-
-==================================================
-11. AUTOMATISCHE STOP-LOSS SIMULATIE
-==================================================
-
-Wanneer een virtuele positie een ingestelde stop-loss bereikt:
-
-sluit automatisch de paper positie.
-
-Registreer:
-
-- Uitstapprijs
-- Tijd
-- Resultaat
-- Reden: STOP LOSS
-
-Hetzelfde geldt voor:
-
-TAKE PROFIT.
-
-Registreer:
-
-Reden: TAKE PROFIT
-
-LET OP:
-
-Gebruik uitsluitend beschikbare marktdata.
-
-Simuleer geen koers die niet via een databron is ontvangen.
-
-==================================================
-12. RISICOMANAGEMENT ENGINE
-==================================================
-
-Gebruiker kiest bijvoorbeeld:
-
-Account:
-€10.000
-
-Maximaal risico:
-1%
-
-Bereken:
-
-€10.000 × 1% = €100 maximaal toegestaan risico.
-
-Voorbeeld:
-
-ASML
-
-Instap:
-€900
-
-Stop-loss:
-€880
-
-Risico per aandeel:
-€20
-
-Maximaal risico:
-€100
-
-Maximale positiegrootte op basis van risico:
-
-€100 / €20 = 5 aandelen.
-
-Controleer vervolgens ook of de gebruiker voldoende virtueel cashsaldo heeft.
-
-Gebruik dus:
-
-maximum_position =
-minimum(
-risk_based_position,
-cash_based_position,
-portfolio_allocation_limit
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import sqlite3
+import hashlib
+import secrets
+import json
+import math
+from datetime import datetime
+
+# ==================================================
+# 1. PAGINA-INSTELLINGEN
+# ==================================================
+
+st.set_page_config(
+    page_title="Global Trading Intelligence",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-==================================================
-13. MARKTDASHBOARD
-==================================================
-
-Maak een professioneel dashboard met:
-
-BELANGRIJKSTE INDEXEN
-
-AEX
-AMX
-DAX
-CAC 40
-FTSE 100
-S&P 500
-NASDAQ 100
-Dow Jones
-Nikkei 225
-Hang Seng
-
-CRYPTO
-
-Bitcoin
-Ethereum
-Solana
-
-FOREX
-
-EUR/USD
-EUR/GBP
-EUR/JPY
-GBP/USD
-USD/JPY
-
-GRONDSTOFFEN
-
-Goud
-Zilver
-Olie
-Natural Gas
-
-Toon:
-
-- prijs
-- verandering
-- procentuele verandering
-- marktstatus
-- volume
-- high
-- low
-- laatste update
-- databron
-
-==================================================
-14. LIVE MARKTSTATUS
-==================================================
-
-Toon:
-
-AMSTERDAM
-OPEN / GESLOTEN
-
-NEW YORK
-OPEN / GESLOTEN
-
-LONDON
-OPEN / GESLOTEN
-
-TOKYO
-OPEN / GESLOTEN
-
-HONG KONG
-OPEN / GESLOTEN
-
-CRYPTO
-24/7
-
-Houd rekening met:
-
-- lokale tijd
-- zomertijd
-- feestdagen
-- openingstijden
-
-==================================================
-15. PROFESSIONELE GRAFIEKEN
-==================================================
-
-Gebruik candlestickgrafieken.
-
-Tijdsintervallen:
-
-1 minuut
-5 minuten
-15 minuten
-30 minuten
-1 uur
-4 uur
-1 dag
-1 week
-1 maand
-
-Indicatoren:
-
-EMA 9
-EMA 21
-EMA 50
-EMA 200
-
-SMA 20
-SMA 50
-SMA 200
-
-RSI 14
-MACD
-Bollinger Bands
-ATR
-VWAP
-Volume
-
-Markeer automatisch:
-
-Support
-Resistance
-Trend
-Breakouts
-
-==================================================
-16. TECHNISCHE ANALYSE ENGINE
-==================================================
-
-Bereken een technische score.
-
-Gebruik bijvoorbeeld:
-
-Trend
-0-20 punten
-
-Momentum
-0-20
-
-Volume
-0-15
-
-RSI
-0-10
-
-MACD
-0-10
-
-Support/resistance
-0-10
-
-Volatiliteit
-0-10
-
-Datakwaliteit
-0-5
-
-Totaal:
-0-100.
-
-Toon bijvoorbeeld:
-
-82 / 100
-
-STERK BULLISH
-
-Maar vermeld altijd:
-
-“Technische score, geen garantie op toekomstige koersbeweging.”
-
-==================================================
-17. AI MARKET INTELLIGENCE ENGINE
-==================================================
-
-Bouw een professionele AI-analysepagina.
-
-De AI ontvangt:
-
-- koersdata
-- historische koersdata
-- volume
-- technische indicatoren
-- support
-- resistance
-- trend
-- volatiliteit
-- recent financieel nieuws
-- economische gebeurtenissen
-- beschikbare bedrijfsfundamentals
-
-Daarna produceert AI:
-
-MARKTSAMENVATTING
-
-TECHNISCHE ANALYSE
-
-FUNDAMENTELE CONTEXT
-
-NIEUWSANALYSE
-
-RISICOANALYSE
-
-MARKTSENTIMENT
-
-BELANGRIJKE PRIJSNIVEAUS
-
-SCENARIOANALYSE
-
-CONCLUSIE
-
-==================================================
-18. AI TOEKOMSTSCENARIO'S
-==================================================
-
-AI mag GEEN gegarandeerde voorspelling geven.
-
-Gebruik drie scenario's.
-
-BULLISH SCENARIO
-
-Voorbeeld:
-
-Als koers boven €X uitbreekt met bovengemiddeld volume:
-
-mogelijke volgende weerstand:
-€Y
-
-Vereiste bevestigingen:
-- volume
-- RSI
-- trend
-- nieuws
-
-NEUTRAAL SCENARIO
-
-Waarschijnlijke consolidatiezone:
-
-€X - €Y
-
-BEARISH SCENARIO
-
-Als support €X breekt:
-
-volgende relevante support:
-€Y
-
-Toon per scenario:
-
-- voorwaarden
-- kansinschatting uitsluitend wanneer het model daarvoor een onderbouwde methodiek heeft
-- onzekerheid
-- nieuwsrisico
-- belangrijke niveaus
-- ongeldigverklaring van scenario
-
-==================================================
-19. AI ADVIESKAART
-==================================================
-
-Maak een visuele kaart:
-
-AI MARKET VIEW
-
-ASML
-
-Technisch:
-BULLISH
-
-Nieuws:
-NEUTRAAL
-
-Momentum:
-POSITIEF
-
-Risico:
-MIDDEL
-
-Volatiliteit:
-MIDDEL
-
-Risk/reward:
-2.4
-
-Data confidence:
-HIGH
-
-Conclusie:
-
-“De huidige technische omstandigheden zijn positief, maar de koers bevindt zich dicht bij weerstand. Een bevestigde uitbraak biedt technisch een sterker scenario dan direct instappen.”
-
-Daaronder:
-
-POTENTIËLE ENTRY ZONE
-
-STOP-LOSS ZONE
-
-TARGET 1
-
-TARGET 2
-
-RISK/REWARD
-
-POSITIEGROOTTE
-
-Dit is uitsluitend informatief en voor paper trading.
-
-==================================================
-20. WERELDWIJD NIEUWS
-==================================================
-
-Bouw een centrale:
-
-GLOBAL FINANCIAL NEWS HUB
-
-Ondersteun verschillende API's via adapters.
-
-Nieuws moet kunnen worden opgehaald over:
-
-Aandelen
-Crypto
-Forex
-Macro-economie
-Centrale banken
-Bedrijfscijfers
-Politiek nieuws met financiële relevantie
-Geopolitiek
-Energie
-AI
-Technologie
-Chips
-Banken
-Farmacie
-Grondstoffen
-
-==================================================
-21. NIEUWSANALYSE
-==================================================
-
-Per artikel sla op:
-
-- titel
-- bron
-- URL
-- publicatietijd
-- categorie
-- land
-- relevante aandelen
-- relevante markten
-
-Laat AI vervolgens analyseren:
-
-SENTIMENT
-
-POSITIEF
-NEUTRAAL
-NEGATIEF
-
-MARKTIMPACT
-
-LAAG
-MIDDEL
-HOOG
-ZEER HOOG
-
-TIJDSHORIZON
-
-UREN
-DAGEN
-WEKEN
-MAANDEN
-
-AI SAMENVATTING
-
-MOGELIJK EFFECT OP MARKT
-
-==================================================
-22. NEWS IMPACT ENGINE
-==================================================
-
-Maak een score:
-
-NEWS IMPACT
-
-0-100.
-
-Baseer dit bijvoorbeeld op:
-
-- betrouwbaarheid bron
-- relevantie asset
-- actualiteit
-- historisch effect vergelijkbare gebeurtenissen
-- omvang gebeurtenis
-- marktreactie
-
-Toon:
-
-92/100 CRITICAL MARKET NEWS
-
-of:
-
-28/100 LOW IMPACT
-
-==================================================
-23. ALERTCENTRUM
-==================================================
-
-Gebruiker kan meldingen krijgen bij:
-
-prijs boven X
-prijs onder X
-dagbeweging > X%
-volume > X
-RSI > 70
-RSI < 30
-EMA crossover
-support break
-resistance breakout
-nieuw artikel
-kritiek nieuws
-kwartaalcijfers
-ECB
-FED
-inflatie
-werkgelegenheid
-stop-loss bereikt
-take-profit bereikt
-AI-signaal gewijzigd.
-
-Bewaar notificaties in database.
-
-Maak:
-
-NOTIFICATIECENTRUM
-
-met:
-
-ALLE
-ONGELEZEN
-PRICE
-NEWS
-AI
-PORTFOLIO
-ECONOMIC
-
-==================================================
-24. ECONOMISCHE KALENDER
-==================================================
-
-Toon:
-
-FED
-ECB
-Bank of England
-CPI
-PPI
-Werkgelegenheid
-BBP
-PMI
-Retail Sales
-Bedrijfsresultaten
-
-Per gebeurtenis:
-
-Tijd
-Land
-Impact
-Vorige waarde
-Verwachting
-Werkelijke waarde
-
-Impact:
-
-LOW
-MEDIUM
-HIGH
-CRITICAL
-
-==================================================
-25. PERSOONLIJKE WATCHLISTS
-==================================================
-
-Gebruiker kan meerdere watchlists maken:
-
-Bijvoorbeeld:
-
-Mijn AEX
-US Tech
-AI aandelen
-Crypto
-Swing kansen
-
-Elke watchlist wordt permanent opgeslagen.
-
-Per asset:
-
-- huidige koers
-- verandering
-- AI-score
-- nieuwsstatus
-- alert
-- persoonlijke notitie
-
-==================================================
-26. FAVORIETEN
-==================================================
-
-Gebruiker kan:
-
-ASML
-NVIDIA
-Microsoft
-Bitcoin
-
-favoriet maken.
-
-Bij opnieuw inloggen blijven favorieten bestaan.
-
-==================================================
-27. TRADING JOURNAL
-==================================================
-
-Iedere gesloten trade moet automatisch worden toegevoegd aan:
-
-TRADING JOURNAL.
-
-Per trade:
-
-Datum
-Ticker
-Strategie
-Instap
-Stop-loss
-Take-profit
-Exit
-Aantal
-Risico
-Resultaat €
-Resultaat %
-Risk/reward
-Duur
-Nieuws
-AI-analyse
-
-Gebruiker kan toevoegen:
-
-Waarom nam ik deze trade?
-
-Wat verwachtte ik?
-
-Hoe voelde ik mij?
-
-Heb ik mijn plan gevolgd?
-
-Wat ging goed?
-
-Wat ging fout?
-
-Wat heb ik geleerd?
-
-==================================================
-28. AI TRADE REVIEW
-==================================================
-
-Na iedere gesloten paper trade kan AI een review maken.
-
-Voorbeeld:
-
-AI TRADE REVIEW
-
-Trade:
-ASML
-
-Resultaat:
--€82
-
-POSITIEF:
-
-✓ Stop-loss gebruikt
-✓ Positiegrootte correct
-✓ Risico onder 1%
-
-MOGELIJKE FOUT:
-
-Trade geopend vlak onder resistance.
-
-VERBETERPUNT:
-
-Wacht een volgende keer op bevestiging boven resistance.
-
-BELANGRIJK:
-
-AI beoordeelt alleen de paper-trades en processen en mag niet garanderen dat een andere handelskeuze winst zou hebben opgeleverd.
-
-==================================================
-29. PERSOONLIJK AI-GEHEUGEN
-==================================================
-
-Bouw een persoonlijk handelsprofiel op uit de historische PAPER TRADING data.
-
-Niet uitsluitend tijdelijk chatgeheugen.
-
-Sla relevante statistieken en gebruikersinstellingen permanent op.
-
-AI moet bijvoorbeeld kunnen herkennen:
-
-- Gebruiker handelt vooral US Tech
-- Gebruiker gebruikt vaak EMA-strategieën
-- Gemiddeld risico per trade
-- Gemiddelde risk/reward
-- Welke paper-strategieën historisch beter/slechter presteerden
-- Hoe vaak gebruiker eigen trade-regels overtreedt
-- Welke soorten paper trades verliesgevend waren
-
-AI moet kunnen antwoorden:
-
-“Hoe ging het deze maand?”
-
-“Welke fouten maakte ik vaak?”
-
-“Welke paper-trading strategie heb ik het meest gebruikt?”
-
-“Hoeveel risico nam ik gemiddeld?”
-
-“Laat mijn laatste 10 trades zien.”
-
-“Hoe was mijn resultaat op ASML?”
-
-“Welke trades heb ik rondom nieuws geopend?”
-
-Alle antwoorden moeten uit de database worden gegenereerd.
-
-Verzin nooit ontbrekende historische informatie.
-
-==================================================
-30. PERSOONLIJK DASHBOARD
-==================================================
-
-Wanneer gebruiker inlogt:
-
-GOEDEMORGEN, [VOORNAAM]
-
-Toon direct:
-
-Portfolio waarde
-
-Dagresultaat
-
-Open posities
-
-Paper trading saldo
-
-Marktstatus
-
-Belangrijkste alerts
-
-Favorieten
-
-Belangrijkste nieuws
-
-Economische gebeurtenissen vandaag
-
-AI market watch
-
-Persoonlijke tradingstatistieken
-
-==================================================
-31. PRESTATIE DASHBOARD
-==================================================
-
-Bereken permanent:
-
-TOTAL RETURN
-
-WINRATE
-
-LOSING RATE
-
-PROFIT FACTOR
-
-EXPECTANCY
-
-GEMIDDELDE WINST
-
-GEMIDDELD VERLIES
-
-GEMIDDELDE RISK/REWARD
-
-MAX DRAWDOWN
-
-BEST TRADE
-
-WORST TRADE
-
-LONGEST WIN STREAK
-
-LONGEST LOSS STREAK
-
-RESULTAAT PER:
-
-Dag
-Week
-Maand
-Jaar
-
-Strategie
-Asset
-Markt
-Dag van week
-Tijdstip
-
-==================================================
-32. EQUITY CURVE
-==================================================
-
-Maak automatisch een grafiek van de virtuele accountwaarde.
-
-Bijvoorbeeld:
-
-Start:
-€10.000
-
-Week 1:
-€10.180
-
-Week 2:
-€9.940
-
-Week 3:
-€10.450
-
-Week 4:
-€10.720
-
-Gegevens uit:
-
-PORTFOLIO_SNAPSHOTS.
-
-==================================================
-33. LEEROMGEVING
-==================================================
-
-Maak een aparte:
-
-TRADING ACADEMY.
-
-Modules:
-
-01 Marktprincipes
-
-02 Candlesticks
-
-03 Trends
-
-04 Support/resistance
-
-05 Orders
-
-06 Stop-loss
-
-07 Risk management
-
-08 Position sizing
-
-09 RSI
-
-10 MACD
-
-11 Moving averages
-
-12 Volume
-
-13 Price action
-
-14 Fundamentele analyse
-
-15 Nieuws
-
-16 Economische kalender
-
-17 Tradingpsychologie
-
-18 Trading plan
-
-19 Paper trading
-
-20 Trading journal
-
-==================================================
-34. LEERVOORTGANG
-==================================================
-
-Sla per account permanent op:
-
-Voltooide lessen
-
-Voortgang
-
-Quizscores
-
-Modules
-
-Datum voltooid
-
-Laat dashboard zeggen:
-
-Trading Academy
-
-14 van 20 modules voltooid
-
-70%
-
-==================================================
-35. BEGINNERSMODUS
-==================================================
-
-Omdat deze applicatie ook geschikt moet zijn voor beginners:
-
-Maak een schakelaar:
-
-BEGINNERSMODUS:
-AAN / UIT
-
-Wanneer AAN:
-
-Toon naast moeilijke begrippen:
-
-?
-
-Bijvoorbeeld:
-
-RSI ?
-
-Klik:
-
-“RSI meet momentum op een schaal van 0 tot 100. Waarden boven 70 worden vaak als relatief hoog beschouwd en onder 30 als relatief laag. Dat betekent niet automatisch kopen of verkopen.”
-
-==================================================
-36. AI ASSISTENT
-==================================================
-
-Maak rechtsonder een permanente AI-assistent.
-
-Naam:
-
-Trading Intelligence Assistant
-
-Voorbeeldvragen:
-
-“Wat gebeurt er vandaag?”
-
-“Waarom daalt ASML?”
-
-“Wat betekent deze candle?”
-
-“Analyseer NVIDIA.”
-
-“Wat zegt het nieuws?”
-
-“Leg RSI eenvoudig uit.”
-
-“Hoeveel zou ik volgens mijn paper-riskregels kunnen inzetten?”
-
-“Hoe presteerde ik deze maand?”
-
-“Welke fouten maak ik?”
-
-“Wat heb ik gisteren gehandeld?”
-
-AI krijgt uitsluitend toegang tot toegestane gebruikersdata en beschikbare marktinformatie.
-
-==================================================
-37. AI MAG GEEN DATA VERZINNEN
-==================================================
-
-ZEER BELANGRIJK.
-
-Als informatie ontbreekt:
-
-zeg:
-
-“Onvoldoende gegevens beschikbaar.”
-
-NIET:
-
-een fictieve waarde genereren.
-
-Dit geldt voor:
-
-koersen
-nieuws
-trades
-fundamentals
-indicatoren
-resultaten
-voorspellingen
-economische cijfers.
-
-==================================================
-38. AI BRONNEN
-==================================================
-
-Elke AI-marktanalyse moet laten zien:
-
-BRONNEN
-
-Market data:
-[provider]
-
-Nieuws:
-[source]
-
-Bedrijfsinformatie:
-[source]
-
-Laatste update:
-[timestamp]
-
-==================================================
-39. DATA FRESHNESS
-==================================================
-
-Toon bij koersinformatie:
-
-REALTIME
-
-DELAYED
-
-END OF DAY
-
-UNKNOWN
-
-Bijvoorbeeld:
-
-NASDAQ
-
-Last update:
-15:34:21
-
-Data:
-15 MIN DELAYED
-
-Provider:
-[naam provider]
-
-Noem data nooit realtime wanneer de API vertraagde data teruggeeft.
-
-==================================================
-40. ERROR HANDLING
-==================================================
-
-Wanneer API uitvalt:
-
-toon NIET:
-
-$0
-
-of fake data.
-
-Toon:
-
-DATA MOMENTEEL NIET BESCHIKBAAR
-
-Laatste succesvolle update:
-12:41:06
-
-Hiermee wordt voorkomen dat foutieve informatie als echte koers verschijnt.
-
-==================================================
-41. PROFESSIONELE UITSTRALING
-==================================================
-
-Look:
-
-Bloomberg Terminal
-TradingView
-Interactive Brokers
-moderne fintech SaaS
-
-Maar maak een volledig eigen ontwerp.
-
-Donkere achtergrond.
-
-Kleuren:
-
-#0B0F19
-#111827
-#1F2937
-
-Bullish:
-#22C55E
-
-Bearish:
-#EF4444
-
-Neutraal:
-#F59E0B
-
-Accent:
-#3B82F6
-
-Maak gebruik van:
-
-glass panels
-subtiele gradients
-micro animations
-responsive cards
-tooltips
-modals
-dropdowns
-professionele iconen
-
-==================================================
-42. PROFESSIONELE AFBEELDINGEN
-==================================================
-
-Gebruik per belangrijke pagina unieke gegenereerde hero-afbeeldingen.
-
-Pagina's:
-
-Login
-Registratie
-Trading Academy
-AI Intelligence
-Market Overview
-
-Visuele stijl:
-
-institutionele fintech
-donkere handelsomgeving
-moderne wereldwijde financiële netwerken
-subtiele grafieken
-serieuze uitstraling
-geen tekst in afbeelding
-geen logo's van echte bedrijven
-geen “snel rijk worden”-uitstraling.
-
-==================================================
-43. MOBIEL
-==================================================
-
-Website moet perfect werken op:
-
-Desktop
-Laptop
-Tablet
-iPhone
-Android
-
-Gebruik responsive design.
-
-Op mobiel:
-
-bottom navigation:
-
-Home
-Markets
-Trade
-News
-Portfolio
-
-==================================================
-44. NAVIGATIE
-==================================================
-
-SIDEBAR:
-
-HOME
-
-Dashboard
-
-MARKETS
-Market Overview
-Stocks
-ETF
-Crypto
-Forex
-Indices
-Commodities
-
-INTELLIGENCE
-AI Market Analysis
-AI News Analysis
-Economic Calendar
-Scanner
-
-TRADING
-Paper Trading
-Orders
-Positions
-Portfolio
-Journal
-
-PERSONAL
-Watchlists
-Alerts
-Performance
-Trading Academy
-
-ACCOUNT
-Profile
-Settings
-Security
-
-==================================================
-45. ONBOARDING
-==================================================
-
-Na registratie:
-
-STAP 1
-
-Welkom.
-
-STAP 2
-
-Hoeveel ervaring heb je?
-
-STAP 3
-
-Welke markten interesseren je?
-
-STAP 4
-
-Welke stijl interesseert je?
-
-STAP 5
-
-Kies virtueel startkapitaal.
-
-STAP 6
-
-Kies maximaal risico per paper trade.
-
-Standaard:
-1%
-
-STAP 7
-
-Maak eerste watchlist.
-
-STAP 8
-
-Dashboard openen.
-
-==================================================
-46. RESET PAPER ACCOUNT
-==================================================
-
-Gebruiker kan paper-account resetten.
-
-Maar:
-
-vraag bevestiging.
-
-Bijvoorbeeld:
-
-“Je huidige paper-account bevat 47 trades en €10.842 accountwaarde. Weet je zeker dat je opnieuw wilt beginnen?”
-
-Daarna:
-
-archiveer oude accountdata.
-
-Verwijder historische gegevens NIET direct.
-
-Start nieuw paper-account.
-
-Hierdoor kan gebruiker oude periodes later nog vergelijken.
-
-==================================================
-47. MEERDERE PAPER ACCOUNTS
-==================================================
-
-Geavanceerde functie:
-
-Gebruiker kan meerdere virtuele accounts maken.
-
-Bijvoorbeeld:
-
-BEGINNER ACCOUNT
-€10.000
-
-SWING STRATEGY
-€25.000
-
-US TECH TEST
-€15.000
-
-CRYPTO TEST
-€5.000
-
-Zo kunnen strategieën onafhankelijk worden getest.
-
-==================================================
-48. STRATEGY LAB
-==================================================
-
-Maak:
-
-STRATEGY LAB.
-
-Gebruiker kan virtuele strategie definiëren.
-
-Voorbeeld:
-
-EMA CROSSOVER
-
-Markt:
-NASDAQ
-
-Entry:
-EMA 9 kruist EMA 21 omhoog.
-
-Extra voorwaarde:
-RSI < 70.
-
-Stop:
-1 ATR.
-
-Target:
-2 ATR.
-
-Laat strategie vervolgens backtesten wanneer voldoende historische data beschikbaar is.
-
-==================================================
-49. BACKTESTING
-==================================================
-
-Resultaten:
-
-Aantal signalen
-
-Winrate
-
-Profit factor
-
-Average return
-
-Max drawdown
-
-Average risk/reward
-
-Equity curve
-
-Laat duidelijk zien:
-
-HISTORISCHE RESULTATEN GARANDEREN GEEN TOEKOMSTIGE RESULTATEN.
-
-==================================================
-50. SECURITY
-==================================================
-
-Implementeer:
-
-Supabase Auth
-
-Row Level Security
-
-Secure session handling
-
-Server-side secrets
-
-Environment variables
-
-Rate limiting
-
-Input validation
-
-CSRF-bescherming waar relevant
-
-XSS-bescherming
-
-Database constraints
-
-Audit logs
-
-Login history
-
-Optionele MFA
-
-API-keys NOOIT naar browser sturen.
-
-==================================================
-51. PRIVACY
-==================================================
-
-Een gebruiker kan:
-
-accountdata downloaden
-
-tradingdata downloaden
-
-journal exporteren
-
-AI-history verwijderen
-
-account verwijderen.
-
-Voor definitieve verwijdering:
-
-vraag expliciete bevestiging.
-
-==================================================
-52. EXPORT
-==================================================
-
-Exporteer:
-
-Trading journal -> Excel
-
-Trade history -> CSV
-
-Maandrapport -> PDF
-
-Performance -> Excel
-
-Portfolio -> CSV
-
-==================================================
-53. DAGELIJKS AI MARKTRAPPORT
-==================================================
-
-Maak dagelijks automatisch voor iedere gebruiker een persoonlijk rapport.
-
-Voorbeeld:
-
-DAILY MARKET BRIEF
-
-Goedemorgen Stiffan.
-
-MARKTEN
-
-AEX futures:
-...
-
-S&P 500:
-...
-
-NASDAQ:
-...
-
-BELANGRIJK VANDAAG
-
-ECB
-Inflatie
-Bedrijfscijfers
-
-JOUW WATCHLIST
-
-ASML:
-...
-
-NVIDIA:
-...
-
-Microsoft:
-...
-
-BITCOIN:
-...
-
-OPEN PAPER POSITIONS
-
-...
-
-RISICO'S VANDAAG
-
-...
-
-De inhoud moet gebaseerd zijn op beschikbare actuele databronnen.
-
-Geen data = geen verzonnen waarde.
-
-==================================================
-54. PERSOONLIJKE AI WEEKREVIEW
-==================================================
-
-Iedere week genereert het systeem:
-
-WEEKLY TRADING REVIEW
-
-Trades:
-12
-
-Wins:
-7
-
-Losses:
-5
-
-Resultaat:
-+2,4%
-
-Regels gevolgd:
-83%
-
-Grootste fout:
-Trades geopend vlak voor belangrijk nieuws.
-
-Sterkste punt:
-Goed stop-lossgebruik.
-
-Focus volgende week:
-Wachten op bevestiging van setups.
-
-Deze analyse MOET uitsluitend worden opgebouwd uit de echte paper-tradinghistorie van de gebruiker.
-
-==================================================
-55. DATABASE BACKUPLOGICA
-==================================================
-
-Omdat gebruikersinformatie belangrijk is:
-
-gebruik database timestamps.
-
-Maak audit trails voor cruciale paper-transacties.
-
-Gebruik geen browser session_state als primaire opslag.
-
-Gebruik database als primaire bron.
-
-De frontend is slechts de weergave.
-
-==================================================
-56. GEEN ECHTE TRADING IN VERSIE 1
-==================================================
-
-ZEER BELANGRIJK:
-
-Versie 1 voert uitsluitend PAPER TRADING uit.
-
-GEEN:
-
-echte brokerorders
-echte automatische kooporders
-echte automatische verkooporders
-echte portefeuillewijzigingen bij een broker.
-
-De software mag wel bij educatieve analyse tonen:
-
-potential entry
-potential stop
-potential target
-risk/reward
-paper position size.
-
-==================================================
-57. DISCLAIMERS
-==================================================
-
-Toon onderaan relevante pagina's:
-
-“Global Trading Intelligence is bedoeld voor educatie, marktanalyse en paper trading. AI-analyses, technische signalen en scenario's vormen geen persoonlijk financieel advies en bieden geen garantie op rendement. Controleer belangrijke informatie altijd bij betrouwbare en gereguleerde bronnen.”
-
-==================================================
-58. PROGRAMMA MOET PRODUCTIEWAARDIG ZIJN
-==================================================
-
-Ik wil GEEN simpele demo met één Pythonbestand.
-
-Ik wil een professionele basis waarop het programma verder kan worden ontwikkeld.
-
-Dus:
-
-modulaire architectuur
-
-herbruikbare componenten
-
-duidelijke mappenstructuur
-
-database migrations
-
-authentication
-
-error handling
-
-tests
-
-logging
-
-API abstraction
-
-security
-
-responsive design
-
-type safety
-
-configuration management.
-
-==================================================
-59. PROJECTSTRUCTUUR
-==================================================
-
-Gebruik ongeveer:
-
-/app
-  /(auth)
-  /dashboard
-  /markets
-  /analysis
-  /news
-  /paper-trading
-  /portfolio
-  /journal
-  /watchlists
-  /academy
-  /performance
-  /settings
-
-/components
-
-/components/charts
-/components/trading
-/components/news
-/components/ai
-/components/portfolio
-/components/ui
-
-/lib
-
-/lib/market-data
-/lib/news
-/lib/ai
-/lib/risk
-/lib/trading
-/lib/database
-
-/services
-
-/types
-
-/hooks
-
-/supabase
-
-/tests
-
-/public
-
-==================================================
-60. TESTS
-==================================================
-
-Maak tests voor:
-
-registratie
-
-login
-
-database permissions
-
-paper buy order
-
-paper sell order
-
-limit order
-
-stop-loss
-
-take-profit
-
-positiegrootte
-
-1%-regel
-
-onvoldoende saldo
-
-portfolio calculation
-
-P&L
-
-journal
-
-watchlist
-
-API failure
-
-delayed data
-
-AI hallucination protection.
-
-==================================================
-61. SEED DATA
-==================================================
-
-Maak testgebruikers en seeddata uitsluitend voor development.
-
-Label deze data duidelijk:
-
-DEMO DATA
-
-Nooit demo-informatie presenteren als live marktinformatie.
-
-==================================================
-62. README
-==================================================
-
-Maak een zeer uitgebreide README.md.
-
-Leg aan een beginner stap voor stap uit:
-
-1. Welke programma's geïnstalleerd moeten worden
-2. Hoe GitHub wordt gebruikt
-3. Hoe Supabase wordt aangemaakt
-4. Hoe database wordt ingericht
-5. Hoe environment variables worden ingesteld
-6. Hoe API-keys worden toegevoegd
-7. Hoe lokaal wordt gestart
-8. Hoe Vercel wordt ingesteld
-9. Hoe online deployment werkt
-10. Hoe latere updates worden uitgevoerd
-
-Gebruik duidelijke commando's die direct gekopieerd kunnen worden.
-
-==================================================
-63. ENVIRONMENT CONFIGURATION
-==================================================
-
-Maak:
-
-.env.example
-
-Met bijvoorbeeld:
-
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-
-MARKET_DATA_API_KEY=
-NEWS_API_KEY=
-AI_API_KEY=
-
-Plaats nooit echte sleutels in repository.
-
-==================================================
-64. BOUWVOLGORDE
-==================================================
-
-Werk gefaseerd.
-
-FASE 1
-Projectstructuur
-UI
-Accounts
-Login
-Supabase
-Database
-Persoonlijke profielen
-
-FASE 2
-Paper trading
-Persistent saldo
-Orders
-Posities
-Portfolio
-Stop-loss
-Take-profit
-
-FASE 3
-Marktdata
-Grafieken
-Indicatoren
-Market overview
-Watchlists
-
-FASE 4
-Nieuws
-Economische kalender
-Alerts
-
-FASE 5
-AI Intelligence
-AI News Analysis
-Scenario Analysis
-Persoonlijke AI-assistent
-
-FASE 6
-Journal
-Performance
-AI Trade Review
-Persoonlijk handelsgeheugen
-
-FASE 7
-Academy
-Learning progress
-Strategy Lab
-Backtesting
-
-FASE 8
-Security
-Testing
-Performance optimization
-Deployment.
-
-==================================================
-65. WAT JE NU MOET GENEREREN
-==================================================
-
-Begin NIET meteen met duizenden regels willekeurige code.
-
-Genereer eerst:
-
-1. Complete systeemarchitectuur
-2. Complete projectmappen
-3. Database ERD
-4. Database tabellen
-5. Relaties tussen tabellen
-6. Supabase RLS-policies
-7. Authentication flow
-8. Paper-trading flow
-9. Marktdataflow
-10. Nieuwsdataflow
-11. AI-dataflow
-12. Technische stack
-13. Benodigde API's
-14. .env.example
-15. package.json
-16. SQL migrations
-17. Installatiecommando's
-
-Controleer daarna zelf:
-
-- Is accountdata permanent?
-- Blijft virtueel saldo behouden?
-- Blijven paper trades behouden?
-- Zijn open posities na opnieuw inloggen aanwezig?
-- Zijn gebruikersdata gescheiden?
-- Is RLS actief?
-- Zijn API-keys veilig?
-- Wordt demo-data nergens als live data weergegeven?
-- Kan AI ontbrekende data herkennen?
-- Kan AI geen echte trades uitvoeren?
-- Werkt het programma ook op mobiel?
-
-Pas eventuele problemen aan.
-
-Bouw daarna pas iedere module volledig uit.
-
-Lever per bestand volledige werkende code.
-
-Gebruik geen pseudocode als daadwerkelijke implementatie nodig is.
-
-Als een externe API-key niet aanwezig is:
-
-laat de module veilig overschakelen naar DEMO MODE of DATA UNAVAILABLE.
-
-Verzin NOOIT actuele financiële informatie.
-
-EINDDOEL:
-
-Een professioneel persoonlijk financieel intelligence-platform waarin een gebruiker jarenlang zijn paper-tradinghistorie, tradingjournal, leerontwikkeling, watchlists, analyses en persoonlijke instellingen kan opbouwen, zodat het platform steeds meer historische context over de eigen paper-tradingprestaties kan tonen.
-
-De applicatie moet veel meer zijn dan een koersdashboard.
-
-Het moet functioneren als combinatie van:
-
-MARKTTERMINAL
-+
-PAPER TRADING PLATFORM
-+
-AI MARKTASSISTENT
-+
-TRADING JOURNAL
-+
-RISICOMANAGER
-+
-FINANCIEEL NIEUWCENTRUM
-+
-TRADING ACADEMY
-+
-PERSOONLIJK PERFORMANCE DASHBOARD.
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background-color: #0B0F19;
+        color: #F3F4F6;
+    }
+
+    [data-testid="stSidebar"] {
+        background-color: #111827;
+    }
+
+    [data-testid="stMetric"] {
+        background-color: #111827;
+        border: 1px solid #273244;
+        border-radius: 12px;
+        padding: 16px;
+    }
+
+    .signal-card {
+        background-color: #111827;
+        border: 1px solid #273244;
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 12px;
+    }
+
+    .bullish {
+        border-left: 5px solid #22C55E;
+    }
+
+    .bearish {
+        border-left: 5px solid #EF4444;
+    }
+
+    .neutral {
+        border-left: 5px solid #F59E0B;
+    }
+
+    .disclaimer {
+        background-color: #111827;
+        border: 1px solid #374151;
+        border-radius: 10px;
+        padding: 14px;
+        color: #D1D5DB;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# ==================================================
+# 2. DATABASE
+# ==================================================
+
+DATABASE_FILE = "trading_platform.db"
+
+
+def get_connection():
+    connection = sqlite3.connect(
+        DATABASE_FILE,
+        check_same_thread=False
+    )
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
+def init_database():
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            first_name TEXT NOT NULL,
+            last_name TEXT,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            password_salt TEXT NOT NULL,
+            country TEXT,
+            experience TEXT,
+            trading_style TEXT,
+            created_at TEXT NOT NULL,
+            last_login TEXT
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS paper_accounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            account_name TEXT NOT NULL,
+            initial_balance REAL NOT NULL,
+            cash_balance REAL NOT NULL,
+            realized_pnl REAL DEFAULT 0,
+            risk_percentage REAL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            active INTEGER DEFAULT 1,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS positions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            account_id INTEGER NOT NULL,
+            ticker TEXT NOT NULL,
+            direction TEXT NOT NULL,
+            quantity REAL NOT NULL,
+            entry_price REAL NOT NULL,
+            stop_loss REAL,
+            take_profit REAL,
+            strategy TEXT,
+            opened_at TEXT NOT NULL,
+            status TEXT DEFAULT 'OPEN',
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (account_id) REFERENCES paper_accounts (id)
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS trades (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            account_id INTEGER NOT NULL,
+            ticker TEXT NOT NULL,
+            direction TEXT NOT NULL,
+            quantity REAL NOT NULL,
+            entry_price REAL NOT NULL,
+            exit_price REAL NOT NULL,
+            stop_loss REAL,
+            take_profit REAL,
+            pnl REAL NOT NULL,
+            pnl_percentage REAL NOT NULL,
+            strategy TEXT,
+            close_reason TEXT,
+            opened_at TEXT,
+            closed_at TEXT NOT NULL,
+            notes TEXT,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (account_id) REFERENCES paper_accounts (id)
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS watchlists (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            ticker TEXT NOT NULL,
+            added_at TEXT NOT NULL,
+            UNIQUE(user_id, ticker),
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS journal (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            trade_id INTEGER,
+            ticker TEXT,
+            reason_entry TEXT,
+            followed_plan TEXT,
+            went_well TEXT,
+            went_wrong TEXT,
+            lesson TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS analysis_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            ticker TEXT NOT NULL,
+            score REAL,
+            signal TEXT,
+            price REAL,
+            summary TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            account_value REAL NOT NULL,
+            cash_balance REAL NOT NULL,
+            invested_value REAL NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+        """
+    )
+
+    connection.commit()
+    connection.close()
+
+
+init_database()
+
+# ==================================================
+# 3. HULPFUNCTIES
+# ==================================================
+
+
+def hash_password(password, salt=None):
+    if salt is None:
+        salt = secrets.token_hex(16)
+
+    password_hash = hashlib.sha256(
+        (password + salt).encode("utf-8")
+    ).hexdigest()
+
+    return password_hash, salt
+
+
+def verify_password(password, stored_hash, salt):
+    calculated_hash, _ = hash_password(password, salt)
+    return calculated_hash == stored_hash
+
+
+def valid_email(email):
+    return "@" in email and "." in email.split("@")[-1]
+
+
+def format_money(value, currency="€"):
+    if value is None or not np.isfinite(float(value)):
+        return f"{currency} 0,00"
+
+    return (
+        f"{currency} "
+        f"{float(value):,.2f}"
+        .replace(",", "X")
+        .replace(".", ",")
+        .replace("X", ".")
+    )
+
+
+def format_percentage(value):
+    if value is None or not np.isfinite(float(value)):
+        return "0,00%"
+
+    return f"{float(value):.2f}%".replace(".", ",")
+
+
+def safe_float(value, default=0.0):
+    try:
+        converted = float(value)
+        if np.isfinite(converted):
+            return converted
+        return default
+    except (TypeError, ValueError):
+        return default
+
+
+# ==================================================
+# 4. GEBRUIKERSFUNCTIES
+# ==================================================
+
+
+def create_user(
+    first_name,
+    last_name,
+    email,
+    password,
+    country,
+    experience,
+    trading_style,
+    starting_balance
+):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    password_hash, salt = hash_password(password)
+    now = datetime.now().isoformat()
+
+    try:
+        cursor.execute(
+            """
+            INSERT INTO users (
+                first_name,
+                last_name,
+                email,
+                password_hash,
+                password_salt,
+                country,
+                experience,
+                trading_style,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                first_name.strip(),
+                last_name.strip(),
+                email.lower().strip(),
+                password_hash,
+                salt,
+                country,
+                experience,
+                trading_style,
+                now
+            )
+        )
+
+        user_id = cursor.lastrowid
+
+        cursor.execute(
+            """
+            INSERT INTO paper_accounts (
+                user_id,
+                account_name,
+                initial_balance,
+                cash_balance,
+                realized_pnl,
+                risk_percentage,
+                created_at,
+                active
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                "Hoofdaccount",
+                starting_balance,
+                starting_balance,
+                0.0,
+                1.0,
+                now,
+                1
+            )
+        )
+
+        standard_watchlist = [
+            "ASML.AS",
+            "AAPL",
+            "MSFT",
+            "NVDA",
+            "BTC-USD",
+            "ETH-USD"
+        ]
+
+        for ticker in standard_watchlist:
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO watchlists (
+                    user_id,
+                    ticker,
+                    added_at
+                )
+                VALUES (?, ?, ?)
+                """,
+                (user_id, ticker, now)
+            )
+
+        connection.commit()
+        return True, "Account succesvol aangemaakt."
+
+    except sqlite3.IntegrityError:
+        return False, "Dit e-mailadres is al geregistreerd."
+
+    except Exception as error:
+        return False, f"Account kon niet worden aangemaakt: {error}"
+
+    finally:
+        connection.close()
+
+
+def login_user(email, password):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM users
+        WHERE email = ?
+        """,
+        (email.lower().strip(),)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        connection.close()
+        return None
+
+    if not verify_password(
+        password,
+        user["password_hash"],
+        user["password_salt"]
+    ):
+        connection.close()
+        return None
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET last_login = ?
+        WHERE id = ?
+        """,
+        (datetime.now().isoformat(), user["id"])
+    )
+
+    connection.commit()
+    connection.close()
+
+    return dict(user)
+
+
+def get_user(user_id):
+    connection = get_connection()
+
+    row = connection.execute(
+        """
+        SELECT *
+        FROM users
+        WHERE id = ?
+        """,
+        (user_id,)
+    ).fetchone()
+
+    connection.close()
+
+    return dict(row) if row else None
+
+
+def get_account(user_id):
+    connection = get_connection()
+
+    row = connection.execute(
+        """
+        SELECT *
+        FROM paper_accounts
+        WHERE user_id = ? AND active = 1
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (user_id,)
+    ).fetchone()
+
+    connection.close()
+
+    return dict(row) if row else None
+
+
+# ==================================================
+# 5. MARKTDATA
+# ==================================================
+
+
+@st.cache_data(ttl=20)
+def get_market_data(ticker, period="1y", interval="1d"):
+    try:
+        data = yf.download(
+            ticker,
+            period=period,
+            interval=interval,
+            auto_adjust=True,
+            progress=False,
+            threads=False
+        )
+
+        if data is None or data.empty:
+            return pd.DataFrame()
+
+        if isinstance(data.columns, pd.MultiIndex):
+            data.columns = data.columns.get_level_values(0)
+
+        required_columns = ["Open", "High", "Low", "Close", "Volume"]
+
+        for column in required_columns:
+            if column not in data.columns:
+                if column == "Volume":
+                    data[column] = 0
+                else:
+                    return pd.DataFrame()
+
+        data = data[required_columns].copy()
+        data = data.replace([np.inf, -np.inf], np.nan)
+        data = data.dropna(subset=["Close"])
+
+        return data
+
+    except Exception:
+        return pd.DataFrame()
+
+
+@st.cache_data(ttl=120)
+def get_market_news(ticker):
+    try:
+        product = yf.Ticker(ticker)
+        articles = product.news
+
+        if not articles:
+            return []
+
+        clean_articles = []
+
+        for article in articles[:15]:
+            content = article.get("content", article)
+
+            title = content.get(
+                "title",
+                article.get("title", "Geen titel beschikbaar")
+            )
+
+            provider_data = content.get("provider", {})
+            publisher = provider_data.get(
+                "displayName",
+                article.get("publisher", "Onbekende bron")
+            )
+
+            canonical_url = content.get("canonicalUrl", {})
+            link = canonical_url.get(
+                "url",
+                article.get("link", "")
+            )
+
+            summary = content.get(
+                "summary",
+                content.get("description", "")
+            )
+
+            published = content.get(
+                "pubDate",
+                article.get("providerPublishTime", "")
+            )
+
+            clean_articles.append(
+                {
+                    "title": title,
+                    "publisher": publisher,
+                    "link": link,
+                    "summary": summary,
+                    "published": str(published)
+                }
+            )
+
+        return clean_articles
+
+    except Exception:
+        return []
+
+
+# ==================================================
+# 6. TECHNISCHE INDICATOREN
+# ==================================================
+
+
+def calculate_rsi(series, period=14):
+    delta = series.diff()
+    gains = delta.clip(lower=0)
+    losses = -delta.clip(upper=0)
+
+    average_gain = gains.ewm(
+        alpha=1 / period,
+        adjust=False,
+        min_periods=period
+    ).mean()
+
+    average_loss = losses.ewm(
+        alpha=1 / period,
+        adjust=False,
+        min_periods=period
+    ).mean()
+
+    relative_strength = (
+        average_gain /
+        average_loss.replace(0, np.nan)
+    )
+
+    rsi = 100 - (100 / (1 + relative_strength))
+    return rsi.fillna(50)
+
+
+def calculate_indicators(data):
+    df = data.copy()
+
+    df["EMA9"] = df["Close"].ewm(
+        span=9,
+        adjust=False
+    ).mean()
+
+    df["EMA21"] = df["Close"].ewm(
+        span=21,
+        adjust=False
+    ).mean()
+
+    df["SMA20"] = df["Close"].rolling(20).mean()
+    df["SMA50"] = df["Close"].rolling(50).mean()
+    df["SMA200"] = df["Close"].rolling(200).mean()
+
+    df["RSI"] = calculate_rsi(df["Close"], 14)
+
+    ema12 = df["Close"].ewm(
+        span=12,
+        adjust=False
+    ).mean()
+
+    ema26 = df["Close"].ewm(
+        span=26,
+        adjust=False
+    ).mean()
+
+    df["MACD"] = ema12 - ema26
+
+    df["MACD_SIGNAL"] = df["MACD"].ewm(
+        span=9,
+        adjust=False
+    ).mean()
+
+    df["MACD_HISTOGRAM"] = (
+        df["MACD"] - df["MACD_SIGNAL"]
+    )
+
+    rolling_std = df["Close"].rolling(20).std()
+
+    df["BOLLINGER_UPPER"] = (
+        df["SMA20"] + 2 * rolling_std
+    )
+
+    df["BOLLINGER_LOWER"] = (
+        df["SMA20"] - 2 * rolling_std
+    )
+
+    previous_close = df["Close"].shift(1)
+
+    true_range = pd.concat(
+        [
+            df["High"] - df["Low"],
+            abs(df["High"] - previous_close),
+            abs(df["Low"] - previous_close)
+        ],
+        axis=1
+    ).max(axis=1)
+
+    df["ATR"] = true_range.rolling(14).mean()
+
+    df["VOLUME_AVERAGE"] = (
+        df["Volume"].rolling(20).mean()
+    )
+
+    df["VOLUME_RATIO"] = (
+        df["Volume"] /
+        df["VOLUME_AVERAGE"].replace(0, np.nan)
+    )
+
+    df["RETURN"] = df["Close"].pct_change()
+
+    df["VOLATILITY"] = (
+        df["RETURN"].rolling(20).std()
+        * np.sqrt(252)
+        * 100
+    )
+
+    df["RUNNING_MAX"] = df["Close"].cummax()
+
+    df["DRAWDOWN"] = (
+        (df["Close"] / df["RUNNING_MAX"]) - 1
+    ) * 100
+
+    return df
+
+
+# ==================================================
+# 7. NIEUWSSENTIMENT
+# ==================================================
+
+
+POSITIVE_WORDS = [
+    "growth",
+    "profit",
+    "beat",
+    "record",
+    "approval",
+    "partnership",
+    "upgrade",
+    "increase",
+    "surge",
+    "gain",
+    "positive",
+    "bullish",
+    "buyback",
+    "dividend",
+    "strong",
+    "outperform",
+    "expansion"
+]
+
+NEGATIVE_WORDS = [
+    "loss",
+    "warning",
+    "miss",
+    "downgrade",
+    "lawsuit",
+    "investigation",
+    "decline",
+    "fall",
+    "negative",
+    "bearish",
+    "hack",
+    "bankruptcy",
+    "layoffs",
+    "recession",
+    "weak",
+    "underperform",
+    "risk"
+]
+
+
+def analyze_news_sentiment(news):
+    if not news:
+        return 50, "NEUTRAAL", []
+
+    scored_articles = []
+
+    for article in news:
+        combined_text = (
+            f"{article.get('title', '')} "
+            f"{article.get('summary', '')}"
+        ).lower()
+
+        positive_count = sum(
+            1 for word in POSITIVE_WORDS
+            if word in combined_text
+        )
+
+        negative_count = sum(
+            1 for word in NEGATIVE_WORDS
+            if word in combined_text
+        )
+
+        score = positive_count - negative_count
+
+        scored_articles.append(
+            {
+                **article,
+                "sentiment_points": score
+            }
+        )
+
+    total_score = sum(
+        article["sentiment_points"]
+        for article in scored_articles
+    )
+
+    normalized_score = 50 + (total_score * 5)
+    normalized_score = max(0, min(100, normalized_score))
+
+    if normalized_score >= 60:
+        label = "POSITIEF"
+    elif normalized_score <= 40:
+        label = "NEGATIEF"
+    else:
+        label = "NEUTRAAL"
+
+    return normalized_score, label, scored_articles
+
+
+# ==================================================
+# 8. HISTORISCHE ANALYSE
+# ==================================================
+
+
+def calculate_historical_statistics(data):
+    if data.empty or len(data) < 30:
+        return {}
+
+    close = data["Close"].dropna()
+    returns = close.pct_change().dropna()
+
+    if returns.empty:
+        return {}
+
+    rolling_max = close.cummax()
+    drawdown = ((close / rolling_max) - 1) * 100
+
+    statistics = {
+        "days": len(close),
+        "return_7d": (
+            (close.iloc[-1] / close.iloc[-8]) - 1
+        ) * 100 if len(close) >= 8 else 0,
+        "return_30d": (
+            (close.iloc[-1] / close.iloc[-31]) - 1
+        ) * 100 if len(close) >= 31 else 0,
+        "return_90d": (
+            (close.iloc[-1] / close.iloc[-91]) - 1
+        ) * 100 if len(close) >= 91 else 0,
+        "total_return": (
+            (close.iloc[-1] / close.iloc[0]) - 1
+        ) * 100,
+        "annual_volatility": (
+            returns.std() * np.sqrt(252) * 100
+        ),
+        "max_drawdown": drawdown.min(),
+        "positive_days": (
+            (returns > 0).mean() * 100
+        ),
+        "highest_price": close.max(),
+        "lowest_price": close.min(),
+        "average_daily_return": returns.mean() * 100
+    }
+
+    return statistics
+
+
+# ==================================================
+# 9. ANALYSE ENGINE
+# ==================================================
+
+
+def generate_analysis(data, news):
+    if data.empty or len(data) < 30:
+        return {
+            "score": 50,
+            "signal": "ONVOLDOENDE DATA",
+            "reasons_for": [],
+            "reasons_against": [],
+            "news_score": 50,
+            "news_label": "NEUTRAAL",
+            "confidence": 0,
+            "stop_loss": 0,
+            "target_1": 0,
+            "target_2": 0,
+            "summary": "Onvoldoende gegevens beschikbaar."
+        }
+
+    df = calculate_indicators(data)
+    latest = df.iloc[-1]
+
+    price = safe_float(latest["Close"])
+    ema9 = safe_float(latest["EMA9"], price)
+    ema21 = safe_float(latest["EMA21"], price)
+    sma50 = safe_float(latest["SMA50"], price)
+    sma200 = safe_float(latest["SMA200"], price)
+    rsi = safe_float(latest["RSI"], 50)
+    macd = safe_float(latest["MACD"])
+    macd_signal = safe_float(latest["MACD_SIGNAL"])
+    volume_ratio = safe_float(
+        latest["VOLUME_RATIO"],
+        1
+    )
+    atr = safe_float(
+        latest["ATR"],
+        price * 0.02
+    )
+
+    technical_score = 50
+    reasons_for = []
+    reasons_against = []
+
+    if ema9 > ema21:
+        technical_score += 12
+        reasons_for.append(
+            "EMA9 ligt boven EMA21, wat op positief kortetermijnmomentum wijst."
+        )
+    else:
+        technical_score -= 12
+        reasons_against.append(
+            "EMA9 ligt onder EMA21, wat op zwak kortetermijnmomentum wijst."
+        )
+
+    if sma50 > sma200:
+        technical_score += 12
+        reasons_for.append(
+            "SMA50 ligt boven SMA200, wat de langere opwaartse trend ondersteunt."
+        )
+    else:
+        technical_score -= 8
+        reasons_against.append(
+            "SMA50 ligt niet boven SMA200."
+        )
+
+    if 45 <= rsi <= 65:
+        technical_score += 7
+        reasons_for.append(
+            f"RSI is {rsi:.1f} en bevindt zich in een gezonde momentumzone."
+        )
+    elif rsi > 70:
+        technical_score -= 8
+        reasons_against.append(
+            f"RSI is {rsi:.1f}. De asset kan technisch oververhit zijn."
+        )
+    elif rsi < 30:
+        technical_score += 3
+        reasons_for.append(
+            f"RSI is {rsi:.1f}. De asset bevindt zich in een relatief lage zone."
+        )
+
+    if macd > macd_signal:
+        technical_score += 10
+        reasons_for.append(
+            "MACD ligt boven de signaallijn."
+        )
+    else:
+        technical_score -= 10
+        reasons_against.append(
+            "MACD ligt onder de signaallijn."
+        )
+
+    if volume_ratio > 1.2:
+        technical_score += 5
+        reasons_for.append(
+            "Het volume ligt boven het twintigdaagse gemiddelde."
+        )
+
+    news_score, news_label, scored_news = (
+        analyze_news_sentiment(news)
+    )
+
+    combined_score = (
+        technical_score * 0.75 +
+        news_score * 0.25
+    )
+
+    combined_score = max(0, min(100, combined_score))
+
+    if combined_score >= 75:
+        signal = "STERK BULLISH"
+    elif combined_score >= 60:
+        signal = "BULLISH"
+    elif combined_score >= 40:
+        signal = "NEUTRAAL"
+    elif combined_score >= 25:
+        signal = "BEARISH"
+    else:
+        signal = "STERK BEARISH"
+
+    confidence = min(
+        90,
+        40
+        + len(reasons_for) * 8
+        + min(len(news), 5) * 3
+    )
+
+    stop_loss = max(
+        0.01,
+        price - (2 * atr)
+    )
+
+    target_1 = price + (2 * atr)
+    target_2 = price + (3 * atr)
+
+    if combined_score >= 60:
+        summary = (
+            "De combinatie van technische indicatoren en "
+            "beschikbaar nieuwssentiment is relatief positief. "
+            "Wacht bij paper trading op prijsbevestiging, "
+            "voldoende volume en een geldige stop-loss."
+        )
+    elif combined_score <= 40:
+        summary = (
+            "De huidige combinatie van technische indicatoren "
+            "en nieuwssentiment is relatief zwak. Een nieuwe "
+            "paperpositie vereist extra bevestiging."
+        )
+    else:
+        summary = (
+            "De beschikbare gegevens geven geen duidelijke richting. "
+            "Wachten op bevestiging is het meest voorzichtige scenario."
+        )
+
+    return {
+        "score": combined_score,
+        "signal": signal,
+        "reasons_for": reasons_for,
+        "reasons_against": reasons_against,
+        "news_score": news_score,
+        "news_label": news_label,
+        "scored_news": scored_news,
+        "confidence": confidence,
+        "stop_loss": stop_loss,
+        "target_1": target_1,
+        "target_2": target_2,
+        "summary": summary,
+        "rsi": rsi,
+        "ema9": ema9,
+        "ema21": ema21,
+        "atr": atr
+    }
+
+
+# ==================================================
+# 10. WATCHLIST
+# ==================================================
+
+
+def get_watchlist(user_id):
+    connection = get_connection()
+
+    rows = connection.execute(
+        """
+        SELECT ticker
+        FROM watchlists
+        WHERE user_id = ?
+        ORDER BY ticker
+        """,
+        (user_id,)
+    ).fetchall()
+
+    connection.close()
+
+    return [row["ticker"] for row in rows]
+
+
+def add_watchlist_item(user_id, ticker):
+    ticker = ticker.upper().strip()
+
+    if not ticker:
+        return False
+
+    connection = get_connection()
+
+    try:
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO watchlists (
+                user_id,
+                ticker,
+                added_at
+            )
+            VALUES (?, ?, ?)
+            """,
+            (
+                user_id,
+                ticker,
+                datetime.now().isoformat()
+            )
+        )
+
+        connection.commit()
+        return True
+
+    finally:
+        connection.close()
+
+
+def remove_watchlist_item(user_id, ticker):
+    connection = get_connection()
+
+    connection.execute(
+        """
+        DELETE FROM watchlists
+        WHERE user_id = ? AND ticker = ?
+        """,
+        (user_id, ticker)
+    )
+
+    connection.commit()
+    connection.close()
+
+
+# ==================================================
+# 11. PAPER TRADING
+# ==================================================
+
+
+def open_position(
+    user_id,
+    account_id,
+    ticker,
+    quantity,
+    entry_price,
+    stop_loss,
+    take_profit,
+    strategy
+):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    account = cursor.execute(
+        """
+        SELECT *
+        FROM paper_accounts
+        WHERE id = ? AND user_id = ?
+        """,
+        (account_id, user_id)
+    ).fetchone()
+
+    if account is None:
+        connection.close()
+        return False, "Paper-account niet gevonden."
+
+    order_value = quantity * entry_price
+
+    if order_value > account["cash_balance"]:
+        connection.close()
+        return False, "Onvoldoende virtueel saldo."
+
+    cursor.execute(
+        """
+        UPDATE paper_accounts
+        SET cash_balance = cash_balance - ?
+        WHERE id = ?
+        """,
+        (order_value, account_id)
+    )
+
+    cursor.execute(
+        """
+        INSERT INTO positions (
+            user_id,
+            account_id,
+            ticker,
+            direction,
+            quantity,
+            entry_price,
+            stop_loss,
+            take_profit,
+            strategy,
+            opened_at,
+            status
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            account_id,
+            ticker,
+            "LONG",
+            quantity,
+            entry_price,
+            stop_loss,
+            take_profit,
+            strategy,
+            datetime.now().isoformat(),
+            "OPEN"
+        )
+    )
+
+    connection.commit()
+    connection.close()
+
+    return True, "Virtuele positie succesvol geopend."
+
+
+def get_open_positions(user_id, account_id):
+    connection = get_connection()
+
+    rows = connection.execute(
+        """
+        SELECT *
+        FROM positions
+        WHERE user_id = ?
+        AND account_id = ?
+        AND status = 'OPEN'
+        ORDER BY opened_at DESC
+        """,
+        (user_id, account_id)
+    ).fetchall()
+
+    connection.close()
+
+    return [dict(row) for row in rows]
+
+
+def close_position(
+    user_id,
+    account_id,
+    position_id,
+    exit_price,
+    close_reason
+):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    position = cursor.execute(
+        """
+        SELECT *
+        FROM positions
+        WHERE id = ?
+        AND user_id = ?
+        AND account_id = ?
+        AND status = 'OPEN'
+        """,
+        (position_id, user_id, account_id)
+    ).fetchone()
+
+    if position is None:
+        connection.close()
+        return False, "Positie niet gevonden."
+
+    quantity = position["quantity"]
+    entry_price = position["entry_price"]
+
+    proceeds = quantity * exit_price
+    pnl = (exit_price - entry_price) * quantity
+
+    pnl_percentage = (
+        ((exit_price / entry_price) - 1) * 100
+        if entry_price > 0
+        else 0
+    )
+
+    cursor.execute(
+        """
+        UPDATE paper_accounts
+        SET
+            cash_balance = cash_balance + ?,
+            realized_pnl = realized_pnl + ?
+        WHERE id = ?
+        """,
+        (proceeds, pnl, account_id)
+    )
+
+    cursor.execute(
+        """
+        UPDATE positions
+        SET status = 'CLOSED'
+        WHERE id = ?
+        """,
+        (position_id,)
+    )
+
+    cursor.execute(
+        """
+        INSERT INTO trades (
+            user_id,
+            account_id,
+            ticker,
+            direction,
+            quantity,
+            entry_price,
+            exit_price,
+            stop_loss,
+            take_profit,
+            pnl,
+            pnl_percentage,
+            strategy,
+            close_reason,
+            opened_at,
+            closed_at,
+            notes
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            account_id,
+            position["ticker"],
+            position["direction"],
+            quantity,
+            entry_price,
+            exit_price,
+            position["stop_loss"],
+            position["take_profit"],
+            pnl,
+            pnl_percentage,
+            position["strategy"],
+            close_reason,
+            position["opened_at"],
+            datetime.now().isoformat(),
+            ""
+        )
+    )
+
+    connection.commit()
+    connection.close()
+
+    return True, "Positie succesvol gesloten."
+
+
+def get_trade_history(user_id, account_id):
+    connection = get_connection()
+
+    rows = connection.execute(
+        """
+        SELECT *
+        FROM trades
+        WHERE user_id = ?
+        AND account_id = ?
+        ORDER BY closed_at DESC
+        """,
+        (user_id, account_id)
+    ).fetchall()
+
+    connection.close()
+
+    return [dict(row) for row in rows]
+
+
+# ==================================================
+# 12. AUTHENTICATIEPAGINA
+# ==================================================
+
+
+def show_authentication():
+    st.title("🌐 GLOBAL TRADING INTELLIGENCE")
+
+    st.caption(
+        "Professional Paper Trading, Historical Analysis "
+        "and Market Intelligence"
+    )
+
+    st.warning(
+        "Dit platform is uitsluitend bedoeld voor educatie "
+        "en paper trading met fictief geld."
+    )
+
+    login_tab, register_tab = st.tabs(
+        ["🔐 Inloggen", "📝 Account aanmaken"]
+    )
+
+    with login_tab:
+        st.subheader("Inloggen")
+
+        email = st.text_input(
+            "E-mailadres",
+            key="login_email"
+        )
+
+        password = st.text_input(
+            "Wachtwoord",
+            type="password",
+            key="login_password"
+        )
+
+        if st.button(
+            "Inloggen",
+            use_container_width=True,
+            type="primary"
+        ):
+            user = login_user(email, password)
+
+            if user:
+                st.session_state.user_id = user["id"]
+                st.success("Succesvol ingelogd.")
+                st.rerun()
+            else:
+                st.error(
+                    "Onjuist e-mailadres of wachtwoord."
+                )
+
+    with register_tab:
+        st.subheader("Account aanmaken")
+
+        column_1, column_2 = st.columns(2)
+
+        with column_1:
+            first_name = st.text_input(
+                "Voornaam",
+                key="register_first_name"
+            )
+
+            last_name = st.text_input(
+                "Achternaam",
+                key="register_last_name"
+            )
+
+            register_email = st.text_input(
+                "E-mailadres",
+                key="register_email"
+            )
+
+            register_password = st.text_input(
+                "Wachtwoord",
+                type="password",
+                key="register_password"
+            )
+
+            confirm_password = st.text_input(
+                "Wachtwoord bevestigen",
+                type="password",
+                key="confirm_password"
+            )
+
+        with column_2:
+            country = st.selectbox(
+                "Land",
+                [
+                    "Nederland",
+                    "België",
+                    "Duitsland",
+                    "Verenigd Koninkrijk",
+                    "Verenigde Staten",
+                    "Anders"
+                ]
+            )
+
+            experience = st.selectbox(
+                "Ervaringsniveau",
+                [
+                    "Volledig beginner",
+                    "Beginner",
+                    "Gemiddeld",
+                    "Ervaren"
+                ]
+            )
+
+            trading_style = st.selectbox(
+                "Tradingstijl",
+                [
+                    "Swingtrading",
+                    "Daytrading",
+                    "Position trading",
+                    "Lange termijn analyse"
+                ]
+            )
+
+            starting_balance = st.selectbox(
+                "Virtueel startkapitaal",
+                [
+                    1000.0,
+                    2500.0,
+                    5000.0,
+                    10000.0,
+                    25000.0,
+                    50000.0,
+                    100000.0
+                ],
+                index=3,
+                format_func=lambda value: format_money(value)
+            )
+
+        accept_conditions = st.checkbox(
+            "Ik ga akkoord met de algemene voorwaarden en privacyvoorwaarden."
+        )
+
+        accept_paper = st.checkbox(
+            "Ik begrijp dat alle transacties fictief zijn."
+        )
+
+        accept_advice = st.checkbox(
+            "Ik begrijp dat analyses geen persoonlijk financieel advies zijn."
+        )
+
+        if st.button(
+            "Account registreren",
+            use_container_width=True,
+            type="primary"
+        ):
+            errors = []
+
+            if not first_name.strip():
+                errors.append("Vul je voornaam in.")
+
+            if not valid_email(register_email):
+                errors.append(
+                    "Vul een geldig e-mailadres in."
+                )
+
+            if len(register_password) < 8:
+                errors.append(
+                    "Het wachtwoord moet minimaal acht tekens bevatten."
+                )
+
+            if register_password != confirm_password:
+                errors.append(
+                    "De wachtwoorden komen niet overeen."
+                )
+
+            if not (
+                accept_conditions
+                and accept_paper
+                and accept_advice
+            ):
+                errors.append(
+                    "Accepteer alle voorwaarden."
+                )
+
+            if errors:
+                for error in errors:
+                    st.error(error)
+            else:
+                success, message = create_user(
+                    first_name,
+                    last_name,
+                    register_email,
+                    register_password,
+                    country,
+                    experience,
+                    trading_style,
+                    starting_balance
+                )
+
+                if success:
+                    st.success(message)
+                else:
+                    st.error(message)
+
+
+# ==================================================
+# 13. SESSION STATE
+# ==================================================
+
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
+
+if st.session_state.user_id is None:
+    show_authentication()
+    st.stop()
+
+current_user = get_user(st.session_state.user_id)
+current_account = get_account(st.session_state.user_id)
+
+if current_user is None or current_account is None:
+    st.session_state.user_id = None
+    st.error("De accountsessie is niet meer geldig.")
+    st.stop()
+
+# ==================================================
+# 14. SIDEBAR EN NAVIGATIE
+# ==================================================
+
+st.sidebar.title("📈 GLOBAL TRADING")
+
+st.sidebar.caption(
+    f"Ingelogd als {current_user['first_name']} "
+    f"{current_user['last_name']}"
+)
+
+page = st.sidebar.radio(
+    "Navigatie",
+    [
+        "🏠 Dashboard",
+        "📊 Assetanalyse",
+        "📰 Nieuws",
+        "🎮 Paper Trading",
+        "💼 Open Posities",
+        "📓 Trading Journal",
+        "📈 Prestaties",
+        "⭐ Watchlist",
+        "🎓 Trading Academy",
+        "👤 Mijn Account"
+    ]
+)
+
+st.sidebar.divider()
+st.sidebar.subheader("⭐ Watchlist")
+
+watchlist = get_watchlist(st.session_state.user_id)
+
+new_ticker = st.sidebar.text_input(
+    "Nieuwe ticker",
+    placeholder="Bijvoorbeeld ASML.AS of BTC-USD"
+).upper().strip()
+
+if st.sidebar.button(
+    "Ticker toevoegen",
+    use_container_width=True
+):
+    if new_ticker:
+        test_data = get_market_data(
+            new_ticker,
+            "5d",
+            "1d"
+        )
+
+        if test_data.empty:
+            st.sidebar.error(
+                "Ticker niet gevonden of geen data beschikbaar."
+            )
+        else:
+            add_watchlist_item(
+                st.session_state.user_id,
+                new_ticker
+            )
+            st.sidebar.success("Ticker toegevoegd.")
+            st.rerun()
+
+if not watchlist:
+    add_watchlist_item(
+        st.session_state.user_id,
+        "ASML.AS"
+    )
+    watchlist = ["ASML.AS"]
+
+selected_ticker = st.sidebar.selectbox(
+    "Geselecteerde asset",
+    watchlist
+)
+
+if st.sidebar.button(
+    "Geselecteerde ticker verwijderen",
+    use_container_width=True
+):
+    if len(watchlist) <= 1:
+        st.sidebar.warning(
+            "De watchlist moet minimaal één ticker bevatten."
+        )
+    else:
+        remove_watchlist_item(
+            st.session_state.user_id,
+            selected_ticker
+        )
+        st.rerun()
+
+st.sidebar.divider()
+
+if st.sidebar.button(
+    "🔐 Veilig uitloggen",
+    use_container_width=True
+):
+    st.session_state.user_id = None
+    st.rerun()
+
+# ==================================================
+# 15. ACTUELE DATA EN ANALYSE
+# ==================================================
+
+market_data = get_market_data(
+    selected_ticker,
+    "1y",
+    "1d"
+)
+
+market_news = get_market_news(selected_ticker)
+
+if market_data.empty:
+    st.error(
+        "Er is momenteel geen marktdata beschikbaar voor "
+        f"{selected_ticker}."
+    )
+    st.stop()
+
+indicator_data = calculate_indicators(market_data)
+current_price = safe_float(
+    indicator_data["Close"].iloc[-1]
+)
+
+analysis = generate_analysis(
+    market_data,
+    market_news
+)
+
+historical_statistics = (
+    calculate_historical_statistics(market_data)
+)
+
+# ==================================================
+# 16. AUTOMATISCHE STOP-LOSS EN TAKE-PROFIT
+# ==================================================
+
+positions = get_open_positions(
+    st.session_state.user_id,
+    current_account["id"]
+)
+
+for position in positions:
+    if position["ticker"] != selected_ticker:
+        continue
+
+    stop_loss = safe_float(
+        position["stop_loss"],
+        0
+    )
+
+    take_profit = safe_float(
+        position["take_profit"],
+        0
+    )
+
+    if (
+        stop_loss > 0
+        and current_price <= stop_loss
+    ):
+        close_position(
+            st.session_state.user_id,
+            current_account["id"],
+            position["id"],
+            current_price,
+            "STOP_LOSS"
+        )
+        st.warning(
+            f"De virtuele stop-loss voor "
+            f"{position['ticker']} is uitgevoerd."
+        )
+        st.rerun()
+
+    if (
+        take_profit > 0
+        and current_price >= take_profit
+    ):
+        close_position(
+            st.session_state.user_id,
+            current_account["id"],
+            position["id"],
+            current_price,
+            "TAKE_PROFIT"
+        )
+        st.success(
+            f"De virtuele take-profit voor "
+            f"{position['ticker']} is uitgevoerd."
+        )
+        st.rerun()
+
+# ==================================================
+# 17. PORTFOLIOBEREKENING
+# ==================================================
+
+positions = get_open_positions(
+    st.session_state.user_id,
+    current_account["id"]
+)
+
+invested_value = 0.0
+open_pnl = 0.0
+
+for position in positions:
+    position_data = get_market_data(
+        position["ticker"],
+        "5d",
+        "1d"
+    )
+
+    if position_data.empty:
+        position_price = position["entry_price"]
+    else:
+        position_price = safe_float(
+            position_data["Close"].iloc[-1],
+            position["entry_price"]
+        )
+
+    position_value = (
+        position_price * position["quantity"]
+    )
+
+    position_pnl = (
+        (position_price - position["entry_price"])
+        * position["quantity"]
+    )
+
+    invested_value += position_value
+    open_pnl += position_pnl
+
+account_value = (
+    current_account["cash_balance"]
+    + invested_value
+)
+
+# ==================================================
+# 18. HEADER
+# ==================================================
+
+st.title("🌐 GLOBAL TRADING INTELLIGENCE")
+
+st.caption(
+    f"Paper Trading & Market Intelligence | "
+    f"Laatste update: "
+    f"{datetime.now().strftime('%d-%m-%Y %H:%M:%S')}"
+)
+
+metric_1, metric_2, metric_3, metric_4 = st.columns(4)
+
+metric_1.metric(
+    "Virtueel cash",
+    format_money(current_account["cash_balance"])
+)
+
+metric_2.metric(
+    "Belegde waarde",
+    format_money(invested_value)
+)
+
+metric_3.metric(
+    "Open P&L",
+    format_money(open_pnl)
+)
+
+metric_4.metric(
+    "Totale accountwaarde",
+    format_money(account_value)
+)
+
+st.divider()
+
+# ==================================================
+# 19. DASHBOARD
+# ==================================================
+
+if page == "🏠 Dashboard":
+    st.header(
+        f"Goedemiddag, {current_user['first_name']} 👋"
+    )
+
+    left_column, right_column = st.columns(
+        [1.7, 1]
+    )
+
+    with left_column:
+        st.subheader(
+            f"📊 {selected_ticker}"
+        )
+
+        price_1, price_2, price_3 = st.columns(3)
+
+        price_1.metric(
+            "Laatste koers",
+            f"{current_price:,.4f}"
+        )
+
+        price_2.metric(
+            "Technische score",
+            f"{analysis['score']:.0f}/100"
+        )
+
+        price_3.metric(
+            "Nieuwsstatus",
+            analysis["news_label"]
+        )
+
+        chart_columns = [
+            "Close",
+            "EMA9",
+            "EMA21",
+            "SMA50"
+        ]
+
+        available_columns = [
+            column
+            for column in chart_columns
+            if column in indicator_data.columns
+        ]
+
+        st.line_chart(
+            indicator_data[
+                available_columns
+            ].tail(180),
+            use_container_width=True
+        )
+
+    with right_column:
+        st.subheader("🤖 Marktanalyse")
+
+        if analysis["score"] >= 60:
+            st.success(analysis["signal"])
+        elif analysis["score"] <= 40:
+            st.error(analysis["signal"])
+        else:
+            st.warning(analysis["signal"])
+
+        st.metric(
+            "Analysezekerheid",
+            f"{analysis['confidence']:.0f}%"
+        )
+
+        st.write(analysis["summary"])
+
+        st.caption(
+            "Dit is een educatieve, regelgebaseerde analyse."
+        )
+
+    st.subheader("Argumenten vóór")
+
+    if analysis["reasons_for"]:
+        for reason in analysis["reasons_for"]:
+            st.success(reason)
+    else:
+        st.info("Geen sterke positieve bevestigingen.")
+
+    st.subheader("Risico's en tegenargumenten")
+
+    if analysis["reasons_against"]:
+        for reason in analysis["reasons_against"]:
+            st.error(reason)
+    else:
+        st.info("Geen sterke technische tegenargumenten gevonden.")
+
+    st.subheader("Historische kenmerken")
+
+    if historical_statistics:
+        h1, h2, h3, h4 = st.columns(4)
+
+        h1.metric(
+            "Rendement 30 dagen",
+            format_percentage(
+                historical_statistics["return_30d"]
+            )
+        )
+
+        h2.metric(
+            "Rendement 90 dagen",
+            format_percentage(
+                historical_statistics["return_90d"]
+            )
+        )
+
+        h3.metric(
+            "Maximale drawdown",
+            format_percentage(
+                historical_statistics["max_drawdown"]
+            )
+        )
+
+        h4.metric(
+            "Positieve dagen",
+            format_percentage(
+                historical_statistics["positive_days"]
+            )
+        )
+
+# ==================================================
+# 20. ASSETANALYSE
+# ==================================================
+
+elif page == "📊 Assetanalyse":
+    st.header(
+        f"📊 Uitgebreide analyse van {selected_ticker}"
+    )
+
+    tab_technical, tab_historical, tab_scenarios = st.tabs(
+        [
+            "Technische analyse",
+            "Historische analyse",
+            "Scenario's"
+        ]
+    )
+
+    with tab_technical:
+        a1, a2, a3, a4 = st.columns(4)
+
+        a1.metric(
+            "RSI",
+            f"{analysis.get('rsi', 50):.1f}"
+        )
+
+        a2.metric(
+            "EMA9",
+            f"{analysis.get('ema9', current_price):.4f}"
+        )
+
+        a3.metric(
+            "EMA21",
+            f"{analysis.get('ema21', current_price):.4f}"
+        )
+
+        a4.metric(
+            "ATR",
+            f"{analysis.get('atr', 0):.4f}"
+        )
+
+        st.line_chart(
+            indicator_data[
+                [
+                    "Close",
+                    "EMA9",
+                    "EMA21",
+                    "SMA20",
+                    "SMA50"
+                ]
+            ].dropna().tail(250),
+            use_container_width=True
+        )
+
+    with tab_historical:
+        if historical_statistics:
+            statistics_frame = pd.DataFrame(
+                {
+                    "Kenmerk": [
+                        "Aantal koersdagen",
+                        "Rendement 7 dagen",
+                        "Rendement 30 dagen",
+                        "Rendement 90 dagen",
+                        "Totaal rendement",
+                        "Jaarvolatiliteit",
+                        "Maximale drawdown",
+                        "Positieve dagen",
+                        "Hoogste koers",
+                        "Laagste koers"
+                    ],
+                    "Waarde": [
+                        historical_statistics["days"],
+                        format_percentage(
+                            historical_statistics["return_7d"]
+                        ),
+                        format_percentage(
+                            historical_statistics["return_30d"]
+                        ),
+                        format_percentage(
+                            historical_statistics["return_90d"]
+                        ),
+                        format_percentage(
+                            historical_statistics["total_return"]
+                        ),
+                        format_percentage(
+                            historical_statistics["annual_volatility"]
+                        ),
+                        format_percentage(
+                            historical_statistics["max_drawdown"]
+                        ),
+                        format_percentage(
+                            historical_statistics["positive_days"]
+                        ),
+                        f"{historical_statistics['highest_price']:.4f}",
+                        f"{historical_statistics['lowest_price']:.4f}"
+                    ]
+                }
+            )
+
+            st.dataframe(
+                statistics_frame,
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.info(
+                "Onvoldoende historische data beschikbaar."
+            )
+
+    with tab_scenarios:
+        st.success(
+            f"Bullish scenario: een bevestigde beweging boven "
+            f"{analysis['target_1']:.4f} met voldoende volume "
+            f"kan het positieve scenario ondersteunen."
+        )
+
+        st.warning(
+            f"Neutraal scenario: zolang de koers tussen "
+            f"{analysis['stop_loss']:.4f} en "
+            f"{analysis['target_1']:.4f} beweegt, "
+            f"is er geen duidelijke doorbraak."
+        )
+
+        st.error(
+            f"Bearish scenario: een daling onder "
+            f"{analysis['stop_loss']:.4f} maakt het huidige "
+            f"positieve scenario ongeldig."
+        )
+
+# ==================================================
+# 21. NIEUWSPAGINA
+# ==================================================
+
+elif page == "📰 Nieuws":
+    st.header(
+        f"📰 Nieuws Intelligence voor {selected_ticker}"
+    )
+
+    n1, n2 = st.columns(2)
+
+    n1.metric(
+        "Nieuwsscore",
+        f"{analysis['news_score']:.0f}/100"
+    )
+
+    n2.metric(
+        "Sentiment",
+        analysis["news_label"]
+    )
+
+    if analysis.get("scored_news"):
+        for article in analysis["scored_news"]:
+            with st.container(border=True):
+                st.subheader(article["title"])
+
+                st.caption(
+                    f"Bron: {article['publisher']} | "
+                    f"Sentimentpunten: "
+                    f"{article['sentiment_points']}"
+                )
+
+                if article.get("summary"):
+                    st.write(article["summary"])
+
+                if article.get("link"):
+                    st.link_button(
+                        "Open origineel artikel",
+                        article["link"]
+                    )
+    else:
+        st.info(
+            "Geen gecontroleerd nieuws beschikbaar voor deze asset."
+        )
+
+# ==================================================
+# 22. PAPER TRADING
+# ==================================================
+
+elif page == "🎮 Paper Trading":
+    st.header("🎮 Paper Trading Order Ticket")
+
+    st.info(
+        "Deze order gebruikt uitsluitend fictief geld. "
+        "Er wordt geen echte brokerorder geplaatst."
+    )
+
+    risk_percentage = st.slider(
+        "Maximaal risico per trade",
+        min_value=0.1,
+        max_value=5.0,
+        value=float(current_account["risk_percentage"]),
+        step=0.1,
+        format="%.1f%%"
+    )
+
+    entry_price = st.number_input(
+        "Virtuele instapprijs",
+        min_value=0.0001,
+        value=float(current_price),
+        format="%.4f"
+    )
+
+    stop_loss = st.number_input(
+        "Stop-loss",
+        min_value=0.0001,
+        value=float(analysis["stop_loss"]),
+        format="%.4f"
+    )
+
+    take_profit = st.number_input(
+        "Take-profit",
+        min_value=0.0001,
+        value=float(analysis["target_1"]),
+        format="%.4f"
+    )
+
+    max_risk_euro = (
+        account_value * risk_percentage / 100
+    )
+
+    risk_per_unit = abs(
+        entry_price - stop_loss
+    )
+
+    units_by_risk = (
+        math.floor(
+            max_risk_euro / risk_per_unit
+        )
+        if risk_per_unit > 0
+        else 0
+    )
+
+    units_by_cash = (
+        math.floor(
+            current_account["cash_balance"]
+            / entry_price
+        )
+        if entry_price > 0
+        else 0
+    )
+
+    max_allocation_value = account_value * 0.25
+
+    units_by_allocation = (
+        math.floor(
+            max_allocation_value / entry_price
+        )
+        if entry_price > 0
+        else 0
+    )
+
+    recommended_units = max(
+        0,
+        min(
+            units_by_risk,
+            units_by_cash,
+            units_by_allocation
+        )
+    )
+
+    target_distance = abs(
+        take_profit - entry_price
+    )
+
+    risk_reward = (
+        target_distance / risk_per_unit
+        if risk_per_unit > 0
+        else 0
+    )
+
+    r1, r2, r3, r4 = st.columns(4)
+
+    r1.metric(
+        "Maximaal risico",
+        format_money(max_risk_euro)
+    )
+
+    r2.metric(
+        "Risico per stuk",
+        format_money(risk_per_unit)
+    )
+
+    r3.metric(
+        "Aanbevolen aantal",
+        recommended_units
+    )
+
+    r4.metric(
+        "Risk/reward",
+        f"{risk_reward:.2f}"
+    )
+
+    default_quantity = max(
+        1,
+        recommended_units
+    )
+
+    quantity = st.number_input(
+        "Aantal eenheden",
+        min_value=1,
+        value=default_quantity,
+        step=1
+    )
+
+    order_value = quantity * entry_price
+
+    actual_risk = quantity * risk_per_unit
+
+    st.write(
+        f"Virtuele orderwaarde: "
+        f"**{format_money(order_value)}**"
+    )
+
+    st.write(
+        f"Risico wanneer de stop-loss wordt geraakt: "
+        f"**{format_money(actual_risk)}**"
+    )
+
+    strategy = st.selectbox(
+        "Strategie",
+        [
+            "Technische analyse",
+            "EMA crossover",
+            "Support bounce",
+            "Resistance breakout",
+            "Nieuwsbevestiging",
+            "Eigen strategie"
+        ]
+    )
+
+    validation_errors = []
+
+    if stop_loss >= entry_price:
+        validation_errors.append(
+            "Voor een longpositie moet de stop-loss "
+            "onder de instapprijs liggen."
+        )
+
+    if take_profit <= entry_price:
+        validation_errors.append(
+            "Voor een longpositie moet de take-profit "
+            "boven de instapprijs liggen."
+        )
+
+    if order_value > current_account["cash_balance"]:
+        validation_errors.append(
+            "Onvoldoende virtueel saldo."
+        )
+
+    if actual_risk > max_risk_euro:
+        validation_errors.append(
+            "De order overschrijdt het ingestelde maximale risico."
+        )
+
+    if risk_reward < 1.5:
+        validation_errors.append(
+            "De risk/reward-verhouding is lager dan 1,5."
+        )
+
+    if analysis["score"] < 60:
+        st.warning(
+            "De analyse geeft momenteel geen overtuigend "
+            "bullish paper-tradingsignaal."
+        )
+
+    for error in validation_errors:
+        st.error(error)
+
+    if st.button(
+        "🟢 Virtuele kooporder plaatsen",
+        use_container_width=True,
+        type="primary",
+        disabled=bool(validation_errors)
+    ):
+        success, message = open_position(
+            st.session_state.user_id,
+            current_account["id"],
+            selected_ticker,
+            quantity,
+            entry_price,
+            stop_loss,
+            take_profit,
+            strategy
+        )
+
+        if success:
+            st.success(message)
+            st.rerun()
+        else:
+            st.error(message)
+
+# ==================================================
+# 23. OPEN POSITIES
+# ==================================================
+
+elif page == "💼 Open Posities":
+    st.header("💼 Open paperposities")
+
+    if not positions:
+        st.info("Je hebt momenteel geen open posities.")
+
+    for position in positions:
+        position_data = get_market_data(
+            position["ticker"],
+            "5d",
+            "1d"
+        )
+
+        if position_data.empty:
+            position_price = position["entry_price"]
+            data_status = "Geen actuele data"
+        else:
+            position_price = safe_float(
+                position_data["Close"].iloc[-1],
+                position["entry_price"]
+            )
+            data_status = "Laatst beschikbare koers"
+
+        position_value = (
+            position_price * position["quantity"]
+        )
+
+        position_pnl = (
+            (position_price - position["entry_price"])
+            * position["quantity"]
+        )
+
+        position_pnl_percentage = (
+            (
+                position_price
+                / position["entry_price"]
+            ) - 1
+        ) * 100
+
+        with st.container(border=True):
+            p1, p2, p3, p4 = st.columns(4)
+
+            p1.metric(
+                position["ticker"],
+                f"{position['quantity']} eenheden"
+            )
+
+            p2.metric(
+                "Instapprijs",
+                f"{position['entry_price']:.4f}"
+            )
+
+            p3.metric(
+                "Huidige prijs",
+                f"{position_price:.4f}"
+            )
+
+            p4.metric(
+                "Open P&L",
+                format_money(position_pnl),
+                format_percentage(
+                    position_pnl_percentage
+                )
+            )
+
+            st.caption(
+                f"{data_status} | "
+                f"Stop-loss: {position['stop_loss']:.4f} | "
+                f"Take-profit: {position['take_profit']:.4f} | "
+                f"Strategie: {position['strategy']}"
+            )
+
+            if st.button(
+                f"🔴 Sluit {position['ticker']}",
+                key=f"close_position_{position['id']}"
+            ):
+                success, message = close_position(
+                    st.session_state.user_id,
+                    current_account["id"],
+                    position["id"],
+                    position_price,
+                    "MANUAL_CLOSE"
+                )
+
+                if success:
+                    st.success(message)
+                    st.rerun()
+                else:
+                    st.error(message)
+
+# ==================================================
+# 24. TRADING JOURNAL
+# ==================================================
+
+elif page == "📓 Trading Journal":
+    st.header("📓 Trading Journal")
+
+    trade_history = get_trade_history(
+        st.session_state.user_id,
+        current_account["id"]
+    )
+
+    if not trade_history:
+        st.info(
+            "Je hebt nog geen gesloten paper trades."
+        )
+    else:
+        journal_data = pd.DataFrame(trade_history)
+
+        display_columns = [
+            "closed_at",
+            "ticker",
+            "quantity",
+            "entry_price",
+            "exit_price",
+            "pnl",
+            "pnl_percentage",
+            "strategy",
+            "close_reason"
+        ]
+
+        available_display_columns = [
+            column
+            for column in display_columns
+            if column in journal_data.columns
+        ]
+
+        st.dataframe(
+            journal_data[available_display_columns],
+            use_container_width=True,
+            hide_index=True
+        )
+
+        csv_data = journal_data.to_csv(
+            index=False
+        ).encode("utf-8")
+
+        st.download_button(
+            "Download journal als CSV",
+            data=csv_data,
+            file_name="trading_journal.csv",
+            mime="text/csv"
+        )
+
+# ==================================================
+# 25. PRESTATIES
+# ==================================================
+
+elif page == "📈 Prestaties":
+    st.header("📈 Paper Trading Prestaties")
+
+    trade_history = get_trade_history(
+        st.session_state.user_id,
+        current_account["id"]
+    )
+
+    if not trade_history:
+        st.info(
+            "Er zijn nog onvoldoende gesloten trades "
+            "voor een prestatieanalyse."
+        )
+    else:
+        pnl_values = [
+            safe_float(trade["pnl"])
+            for trade in trade_history
+        ]
+
+        winners = [
+            value
+            for value in pnl_values
+            if value > 0
+        ]
+
+        losers = [
+            value
+            for value in pnl_values
+            if value < 0
+        ]
+
+        total_trades = len(pnl_values)
+
+        winrate = (
+            len(winners) / total_trades * 100
+            if total_trades > 0
+            else 0
+        )
+
+        total_pnl = sum(pnl_values)
+
+        gross_profit = sum(winners)
+
+        gross_loss = abs(sum(losers))
+
+        profit_factor = (
+            gross_profit / gross_loss
+            if gross_loss > 0
+            else gross_profit
+        )
+
+        average_win = (
+            np.mean(winners)
+            if winners
+            else 0
+        )
+
+        average_loss = (
+            np.mean(losers)
+            if losers
+            else 0
+        )
+
+        s1, s2, s3, s4 = st.columns(4)
+
+        s1.metric(
+            "Gesloten trades",
+            total_trades
+        )
+
+        s2.metric(
+            "Winrate",
+            format_percentage(winrate)
+        )
+
+        s3.metric(
+            "Profit factor",
+            f"{profit_factor:.2f}"
+        )
+
+        s4.metric(
+            "Totaal resultaat",
+            format_money(total_pnl)
+        )
+
+        s5, s6 = st.columns(2)
+
+        s5.metric(
+            "Gemiddelde winst",
+            format_money(average_win)
+        )
+
+        s6.metric(
+            "Gemiddeld verlies",
+            format_money(average_loss)
+        )
+
+        pnl_frame = pd.DataFrame(
+            {
+                "Trade": list(
+                    range(1, total_trades + 1)
+                ),
+                "P&L": list(reversed(pnl_values))
+            }
+        )
+
+        pnl_frame["Cumulatief P&L"] = (
+            pnl_frame["P&L"].cumsum()
+        )
+
+        st.subheader("Cumulatief resultaat")
+
+        st.line_chart(
+            pnl_frame.set_index("Trade")[
+                ["Cumulatief P&L"]
+            ]
+        )
+
+        if total_trades < 20:
+            st.warning(
+                "Er zijn minder dan 20 gesloten trades. "
+                "Persoonlijke patroonanalyse is nog onvoldoende betrouwbaar."
+            )
+        else:
+            st.success(
+                "Er zijn voldoende trades voor een eerste "
+                "voorzichtige patroonanalyse."
+            )
+
+# ==================================================
+# 26. WATCHLISTPAGINA
+# ==================================================
+
+elif page == "⭐ Watchlist":
+    st.header("⭐ Mijn Watchlist")
+
+    watchlist_rows = []
+
+    for ticker in watchlist:
+        ticker_data = get_market_data(
+            ticker,
+            "1mo",
+            "1d"
+        )
+
+        if ticker_data.empty:
+            watchlist_rows.append(
+                {
+                    "Ticker": ticker,
+                    "Koers": "Niet beschikbaar",
+                    "30 dagen": "Niet beschikbaar"
+                }
+            )
+            continue
+
+        ticker_price = safe_float(
+            ticker_data["Close"].iloc[-1]
+        )
+
+        monthly_return = (
+            (
+                ticker_data["Close"].iloc[-1]
+                / ticker_data["Close"].iloc[0]
+            ) - 1
+        ) * 100
+
+        watchlist_rows.append(
+            {
+                "Ticker": ticker,
+                "Koers": f"{ticker_price:.4f}",
+                "30 dagen": format_percentage(
+                    monthly_return
+                )
+            }
+        )
+
+    st.dataframe(
+        pd.DataFrame(watchlist_rows),
+        use_container_width=True,
+        hide_index=True
+    )
+
+# ==================================================
+# 27. TRADING ACADEMY
+# ==================================================
+
+elif page == "🎓 Trading Academy":
+    st.header("🎓 Trading Academy")
+
+    with st.expander(
+        "1. Wat is een candlestick?"
+    ):
+        st.write(
+            "Een candlestick toont de openingsprijs, "
+            "sluitingsprijs, hoogste prijs en laagste prijs "
+            "binnen een bepaalde periode."
+        )
+
+    with st.expander(
+        "2. Wat is een limitorder?"
+    ):
+        st.write(
+            "Een limitorder wordt alleen uitgevoerd tegen "
+            "de ingestelde prijs of een gunstigere prijs."
+        )
+
+    with st.expander(
+        "3. Wat is een stop-loss?"
+    ):
+        st.write(
+            "Een stop-loss is een vooraf ingesteld niveau "
+            "waarop een positie wordt gesloten wanneer de "
+            "koers tegen de verwachting in beweegt."
+        )
+
+    with st.expander(
+        "4. Hoe werkt de 1%-regel?"
+    ):
+        st.write(
+            "Bij de 1%-regel mag het verlies wanneer de "
+            "stop-loss wordt geraakt maximaal 1% van de "
+            "totale accountwaarde bedragen."
+        )
+
+        st.code(
+            "Maximaal risico = accountwaarde × 1%\n"
+            "Aantal = maximaal risico / risico per stuk"
+        )
+
+    with st.expander(
+        "5. Wat is risk/reward?"
+    ):
+        st.write(
+            "Risk/reward vergelijkt het mogelijke winstdoel "
+            "met het mogelijke verlies tot de stop-loss. "
+            "Een verhouding van 2 betekent dat het potentiële "
+            "winstdoel twee keer zo groot is als het risico."
+        )
+
+# ==================================================
+# 28. MIJN ACCOUNT
+# ==================================================
+
+elif page == "👤 Mijn Account":
+    st.header("👤 Mijn Account")
+
+    profile_1, profile_2 = st.columns(2)
+
+    with profile_1:
+        st.write(
+            f"**Naam:** "
+            f"{current_user['first_name']} "
+            f"{current_user['last_name']}"
+        )
+
+        st.write(
+            f"**E-mailadres:** {current_user['email']}"
+        )
+
+        st.write(
+            f"**Land:** {current_user['country']}"
+        )
+
+        st.write(
+            f"**Ervaring:** {current_user['experience']}"
+        )
+
+    with profile_2:
+        st.write(
+            f"**Tradingstijl:** "
+            f"{current_user['trading_style']}"
+        )
+
+        st.write(
+            f"**Account aangemaakt:** "
+            f"{current_user['created_at']}"
+        )
+
+        st.write(
+            f"**Virtueel startkapitaal:** "
+            f"{format_money(current_account['initial_balance'])}"
+        )
+
+        st.write(
+            f"**Gerealiseerde P&L:** "
+            f"{format_money(current_account['realized_pnl'])}"
+        )
+
+    st.warning(
+        "De huidige versie gebruikt SQLite. Op Streamlit "
+        "Community Cloud kan het databasebestand verdwijnen "
+        "wanneer de app opnieuw wordt opgebouwd. Gebruik voor "
+        "volledig permanente online accounts later Supabase."
+    )
+
+# ==================================================
+# 29. DISCLAIMER
+# ==================================================
+
+st.divider()
+
+st.markdown(
+    """
+    <div class="disclaimer">
+    <strong>Belangrijke waarschuwing</strong><br>
+    Global Trading Intelligence is uitsluitend bedoeld voor educatie,
+    historische marktanalyse en paper trading. De technische analyses,
+    nieuwsscores en scenario's vormen geen persoonlijk financieel advies
+    en bieden geen garantie op rendement. Historische resultaten
+    voorspellen geen toekomstige resultaten. Er worden geen echte
+    brokerorders geplaatst.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
