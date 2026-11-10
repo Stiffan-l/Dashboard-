@@ -275,73 +275,134 @@ def init_database():
 init_database()
 
 # ==================================================
-# 4. VEILIGE ACCOUNTS
+# 4. PERSOONLIJK DASHBOARD ZONDER INLOGGEN
 # ==================================================
 
-def password_hash(password, salt=None):
-    salt_bytes = bytes.fromhex(salt) if salt else secrets.token_bytes(32)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt_bytes, PBKDF2_ITERATIONS)
-    return digest.hex(), salt_bytes.hex()
+PERSONAL_USER_ID = 1
+PERSONAL_EMAIL = "veenstajann@gmail.com"
+PERSONAL_NAME = "Stiffan"
 
 
-def register_user(first_name, last_name, email, password, start_balance):
-    email = email.strip().lower()
-    role = "ADMIN" if email == ADMIN_EMAIL.lower() else "USER"
-    digest, salt = password_hash(password)
+def initialize_personal_dashboard():
+    conn = db()
     now = datetime.now(timezone.utc).isoformat()
-    conn = db()
-    try:
-        cur = conn.execute(
-            "INSERT INTO users(first_name,last_name,email,password_hash,password_salt,role,active,created_at) VALUES(?,?,?,?,?,?,1,?)",
-            (first_name.strip(), last_name.strip(), email, digest, salt, role, now),
-        )
-        user_id = cur.lastrowid
+
+    user = conn.execute(
+        "SELECT * FROM users WHERE id=?",
+        (PERSONAL_USER_ID,),
+    ).fetchone()
+
+    if user is None:
         conn.execute(
-            "INSERT INTO paper_accounts(user_id,initial_balance,cash_balance,created_at) VALUES(?,?,?,?)",
-            (user_id, float(start_balance), float(start_balance), now),
+            """
+            INSERT INTO users(
+                id, first_name, last_name, email,
+                password_hash, password_salt,
+                role, active, created_at, last_login
+            ) VALUES(?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                PERSONAL_USER_ID,
+                PERSONAL_NAME,
+                "",
+                PERSONAL_EMAIL,
+                "LOCAL_NO_LOGIN",
+                "LOCAL_NO_LOGIN",
+                "ADMIN",
+                1,
+                now,
+                now,
+            ),
         )
-        conn.execute("INSERT INTO user_settings(user_id) VALUES(?)", (user_id,))
-        for ticker in ["ASML.AS", "AAPL", "MSFT", "NVDA", "BTC-USD", "ETH-USD"]:
-            conn.execute("INSERT OR IGNORE INTO watchlists(user_id,ticker,created_at) VALUES(?,?,?)", (user_id, ticker, now))
-        conn.commit()
-        return True, "Account aangemaakt. Je kunt nu inloggen."
-    except sqlite3.IntegrityError:
-        return False, "Dit e-mailadres bestaat al."
-    except Exception as exc:
-        return False, f"Registratie mislukt: {exc}"
-    finally:
-        conn.close()
+    else:
+        conn.execute(
+            """
+            UPDATE users
+            SET first_name=?, email=?, role='ADMIN', active=1
+            WHERE id=?
+            """,
+            (PERSONAL_NAME, PERSONAL_EMAIL, PERSONAL_USER_ID),
+        )
 
+    account = conn.execute(
+        """
+        SELECT * FROM paper_accounts
+        WHERE user_id=? AND active=1
+        ORDER BY id DESC LIMIT 1
+        """,
+        (PERSONAL_USER_ID,),
+    ).fetchone()
 
-def login_user(email, password):
-    conn = db()
-    row = conn.execute("SELECT * FROM users WHERE lower(email)=lower(?)", (email.strip(),)).fetchone()
-    if not row or not row["active"]:
-        conn.close()
-        return None
-    digest, _ = password_hash(password, row["password_salt"])
-    valid = hmac.compare_digest(digest, row["password_hash"])
-    if valid:
-        conn.execute("UPDATE users SET last_login=? WHERE id=?", (datetime.now(timezone.utc).isoformat(), row["id"]))
-        conn.commit()
+    if account is None:
+        conn.execute(
+            """
+            INSERT INTO paper_accounts(
+                user_id, name, initial_balance, cash_balance,
+                realized_pnl, risk_pct, max_allocation_pct,
+                max_positions, active, created_at
+            ) VALUES(?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                PERSONAL_USER_ID,
+                "Mijn Paper Trading Account",
+                DEFAULT_STARTING_BALANCE,
+                DEFAULT_STARTING_BALANCE,
+                0.0,
+                1.0,
+                20.0,
+                5,
+                1,
+                now,
+            ),
+        )
+
+    conn.execute(
+        "INSERT OR IGNORE INTO user_settings(user_id) VALUES(?)",
+        (PERSONAL_USER_ID,),
+    )
+
+    default_watchlist = [
+        "ASML.AS", "AAPL", "MSFT", "NVDA", "AMZN",
+        "GOOGL", "META", "TSLA", "BTC-USD", "ETH-USD", "SOL-USD"
+    ]
+    for ticker in default_watchlist:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO watchlists(user_id,ticker,created_at)
+            VALUES(?,?,?)
+            """,
+            (PERSONAL_USER_ID, ticker, now),
+        )
+
+    conn.commit()
     conn.close()
-    return dict(row) if valid else None
 
 
 def current_user():
-    if not st.session_state.get("user_id"):
-        return None
     conn = db()
-    row = conn.execute("SELECT * FROM users WHERE id=? AND active=1", (st.session_state.user_id,)).fetchone()
+    row = conn.execute(
+        "SELECT * FROM users WHERE id=? AND active=1",
+        (PERSONAL_USER_ID,),
+    ).fetchone()
     conn.close()
     return dict(row) if row else None
 
 
-def current_account(user_id):
+def current_account(user_id=PERSONAL_USER_ID):
     conn = db()
-    row = conn.execute("SELECT * FROM paper_accounts WHERE user_id=? AND active=1 ORDER BY id DESC LIMIT 1", (user_id,)).fetchone()
+    row = conn.execute(
+        """
+        SELECT * FROM paper_accounts
+        WHERE user_id=? AND active=1
+        ORDER BY id DESC LIMIT 1
+        """,
+        (user_id,),
+    ).fetchone()
     conn.close()
     return dict(row) if row else None
+
+
+initialize_personal_dashboard()
 
 # ==================================================
 # 5. MARKTDATA EN INDICATOREN
@@ -617,51 +678,16 @@ def portfolio_summary(user, account):
     return {"cash": account["cash_balance"], "invested": invested, "open_pnl": open_pnl, "equity": account["cash_balance"] + invested, "positions": live}
 
 # ==================================================
-# 8. AUTHENTICATIE
+# 8. PERSOONLIJKE SESSIE ZONDER INLOGSCHERM
 # ==================================================
 
-def auth_screen():
-    st.title(f"🌐 {APP_NAME}")
-    st.caption("Professional Paper Trading & Market Intelligence")
-    st.warning(DISCLAIMER)
-    login_tab, register_tab = st.tabs(["🔐 Inloggen", "📝 Registreren"])
-    with login_tab:
-        email = st.text_input("E-mailadres", key="login_email")
-        password = st.text_input("Wachtwoord", type="password", key="login_password")
-        if st.button("Inloggen", type="primary", use_container_width=True):
-            user = login_user(email, password)
-            if user:
-                st.session_state.user_id = user["id"]
-                st.rerun()
-            else:
-                st.error("Onjuiste gegevens of het account is geblokkeerd.")
-    with register_tab:
-        c1, c2 = st.columns(2)
-        with c1:
-            first = st.text_input("Voornaam", key="reg_first")
-            last = st.text_input("Achternaam", key="reg_last")
-            email = st.text_input("E-mailadres", key="reg_email")
-        with c2:
-            password = st.text_input("Wachtwoord", type="password", key="reg_password")
-            confirm = st.text_input("Bevestig wachtwoord", type="password", key="reg_confirm")
-            start = st.selectbox("Virtueel startkapitaal", [1000,2500,5000,10000,25000,50000,100000], index=3)
-        agree = st.checkbox("Ik begrijp dat dit paper trading is en geen financieel advies.")
-        if st.button("Account aanmaken", type="primary", use_container_width=True):
-            if not first.strip() or "@" not in email or len(password) < 8 or password != confirm or not agree:
-                st.error("Controleer de velden. Wachtwoord minimaal 8 tekens en voorwaarden accepteren.")
-            else:
-                ok, message = register_user(first, last, email, password, start)
-                st.success(message) if ok else st.error(message)
-
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
-if not st.session_state.user_id:
-    auth_screen(); st.stop()
-
 user = current_user()
-if not user:
-    st.session_state.user_id = None; st.rerun()
-account = current_account(user["id"])
+account = current_account()
+
+if user is None or account is None:
+    st.error("Het persoonlijke dashboard kon niet worden geladen.")
+    st.stop()
+
 portfolio = portfolio_summary(user, account)
 
 # ==================================================
@@ -669,13 +695,11 @@ portfolio = portfolio_summary(user, account)
 # ==================================================
 
 st.sidebar.title("📈 GLOBAL TRADING")
-st.sidebar.caption(f"{user['first_name']} {user['last_name']} | {user['role']}")
+st.sidebar.caption("Persoonlijk Paper Trading Dashboard")
 pages = ["🏠 Home","🔎 Market Scanner","📊 Assetanalyse","📰 Nieuws","🎮 Paper Trading","💼 Open Posities","📓 Trading Journal","📈 Performance","⭐ Watchlist","⚙️ Instellingen"]
 if user["role"] == "ADMIN":
     pages.append("🛡️ Beheer")
 page = st.sidebar.radio("Navigatie", pages)
-if st.sidebar.button("🔐 Uitloggen", use_container_width=True):
-    st.session_state.user_id = None; st.rerun()
 
 watch_conn = db(); watch = [r["ticker"] for r in watch_conn.execute("SELECT ticker FROM watchlists WHERE user_id=? ORDER BY ticker", (user["id"],)).fetchall()]; watch_conn.close()
 if not watch:
