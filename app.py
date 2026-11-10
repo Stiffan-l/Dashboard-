@@ -100,7 +100,7 @@ class AIProvider:
 # 4. REGISTRATIE & ACCOUNT INLOGSYSTEEM
 # ==================================================
 def toon_auth_scherm():
-    st.title("🌐 GLOBAL TRADING INTELLIGENCE")
+    st.title("🌐 GLOBAL TRADING INTELLIGENCE")2
     st.caption("V1 Professional Paper Trading & AI Market Intelligence Platform")
     
     tab1, tab2 = st.tabs(["🔐 Inloggen", "📝 Registreren"])
